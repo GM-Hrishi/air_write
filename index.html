@@ -1,17 +1,12 @@
 <!DOCTYPE html>
-<!-- saved from url=(0055)file:///C:/Users/G%20M%20HRISHI/Downloads/index_11.html -->
+<!-- saved from url=(0055)file:///C:/Users/G%20M%20HRISHI/Downloads/index_14.html -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AIR DRAW v1.2</title>
 <link href="./index_files/css2" rel="stylesheet">
 
-<!--
-  Loading MediaPipe via jsDelivr (more reliable than unpkg on restricted networks)
-  Falls back to unpkg if jsDelivr fails
--->
 <script>
-// Dynamic CDN loader with fallback
 function loadScript(url) {
   return new Promise((resolve, reject) => {
     const s = document.createElement('script');
@@ -20,866 +15,993 @@ function loadScript(url) {
     document.head.appendChild(s);
   });
 }
-
 window._mpReady = (async () => {
   const libs = [
-    {
-      name: 'hands',
-      urls: [
-        'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js',
-        'https://unpkg.com/@mediapipe/hands@0.4.1646424915/hands.js',
-        'https://cdnjs.cloudflare.com/ajax/libs/mediapipe/0.4.1646424915/hands.js'
-      ]
-    },
-    {
-      name: 'camera_utils',
-      urls: [
-        'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js',
-        'https://unpkg.com/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js'
-      ]
-    },
-    {
-      name: 'drawing_utils',
-      urls: [
-        'https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js',
-        'https://unpkg.com/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js'
-      ]
-    }
+    { name:'hands', urls:[
+      'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js',
+      'https://unpkg.com/@mediapipe/hands@0.4.1646424915/hands.js'
+    ]},
+    { name:'camera_utils', urls:[
+      'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js',
+      'https://unpkg.com/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js'
+    ]},
+    { name:'drawing_utils', urls:[
+      'https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js',
+      'https://unpkg.com/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js'
+    ]}
   ];
-
   for (const lib of libs) {
-    let loaded = false;
+    let ok = false;
     for (const url of lib.urls) {
-      try {
-        await loadScript(url);
-        loaded = true;
-        console.log(`✓ ${lib.name} loaded from ${url.split('/')[2]}`);
-        break;
-      } catch(e) {
-        console.warn(`✗ ${lib.name} failed: ${url.split('/')[2]}`);
-      }
+      try { await loadScript(url); ok = true; break; }
+      catch(e) { console.warn('CDN fail:', url); }
     }
-    if (!loaded) throw new Error(`All CDNs failed for ${lib.name}`);
+    if (!ok) throw new Error('All CDNs failed for ' + lib.name);
   }
 })();
 </script><script src="./index_files/hands.js.download" crossorigin="anonymous"></script>
 
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
 :root {
-  --cyan: #00f5ff;
-  --magenta: #ff00aa;
-  --green: #00ff88;
-  --yellow: #ffd700;
-  --bg: #020408;
-  --border: rgba(0,245,255,0.15);
-  --panel: rgba(0,245,255,0.04);
+  --a: #e8a000;
+  --a2: rgba(232,160,0,0.5);
+  --a3: rgba(232,160,0,0.08);
+  --ab: rgba(232,160,0,0.15);
+  --g: #4dff91;
+  --r: #ff4444;
+  --bg: #080600;
+  --txt: #c8a84b;
+  --dim: rgba(200,168,75,0.35);
 }
+html,body { width:100%;height:100%;overflow:hidden; }
+body { background:var(--bg);color:var(--txt);font-family:'Space Mono',monospace;position:relative; }
 
-body {
-  background: var(--bg);
-  color: var(--cyan);
-  font-family: 'Share Tech Mono', monospace;
-  height: 100vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
+/* grain */
 body::before {
-  content: '';
-  position: fixed; inset: 0;
-  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,245,255,0.01) 2px, rgba(0,245,255,0.01) 4px);
-  pointer-events: none;
-  z-index: 1000;
+  content:'';position:fixed;inset:0;z-index:9000;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+  background-size:160px 160px;opacity:0.6;
 }
-
+/* scanlines */
 body::after {
-  content: '';
-  position: fixed; inset: 0;
-  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.7) 100%);
-  pointer-events: none;
-  z-index: 999;
+  content:'';position:fixed;inset:0;z-index:8999;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.38) 3px,rgba(0,0,0,0.38) 4px);
+  animation:scan 14s linear infinite;
+}
+@keyframes scan{0%{background-position:0 0}100%{background-position:0 400px}}
+
+/* canvas */
+#video { position:fixed;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:0.10;z-index:0; }
+#drawCanvas { position:fixed;inset:0;width:100%;height:100%;z-index:1; }
+#overlayCanvas { position:fixed;inset:0;width:100%;height:100%;z-index:2;pointer-events:none; }
+
+/* corners */
+.corner { position:fixed;width:24px;height:24px;z-index:200;pointer-events:none;opacity:0.3; }
+.corner::before,.corner::after{content:'';position:absolute;background:var(--a);}
+.corner::before{width:100%;height:1px;top:0;}
+.corner::after{width:1px;height:100%;top:0;}
+.corner.tl{top:16px;left:16px}
+.corner.tr{top:16px;right:16px;transform:scaleX(-1)}
+.corner.bl{bottom:16px;left:16px;transform:scaleY(-1)}
+.corner.br{bottom:16px;right:16px;transform:scale(-1)}
+
+/* topbar */
+#topbar {
+  position:fixed;top:0;left:0;right:0;height:42px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 48px;z-index:500;pointer-events:none;
+  background:linear-gradient(to bottom,rgba(8,6,0,0.92),transparent);
+}
+.logo { font-family:'VT323',monospace;font-size:1.4rem;letter-spacing:9px;color:var(--a);text-shadow:0 0 18px rgba(232,160,0,0.5); }
+.sysstatus { display:flex;gap:18px;align-items:center;font-size:0.5rem;letter-spacing:2px;color:var(--dim); }
+.sig { display:flex;align-items:center;gap:5px; }
+.sd { width:5px;height:5px;border-radius:50%;background:#1a1500;border:1px solid rgba(232,160,0,0.15);transition:all 0.4s; }
+.sd.on   { background:var(--g);box-shadow:0 0 6px var(--g);border-color:var(--g);animation:pl 2s infinite; }
+.sd.draw { background:var(--a);box-shadow:0 0 6px var(--a);border-color:var(--a);animation:pl 0.5s infinite; }
+.sd.warn { background:var(--r);box-shadow:0 0 6px var(--r);border-color:var(--r); }
+@keyframes pl{0%,100%{opacity:1}50%{opacity:0.25}}
+
+/* timecode */
+#tc {
+  position:fixed;bottom:46px;left:48px;
+  font-family:'VT323',monospace;font-size:0.85rem;letter-spacing:3px;
+  color:var(--a2);z-index:500;pointer-events:none;
 }
 
-/* HEADER */
-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 9px 18px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(0,0,0,0.8);
-  backdrop-filter: blur(12px);
-  flex-shrink: 0; z-index: 100;
+/* left tool strip */
+#toolstrip {
+  position:fixed;left:16px;top:50%;transform:translateY(-50%);
+  display:flex;flex-direction:column;gap:5px;
+  z-index:500;opacity:0;transition:opacity 0.4s;
 }
-
-.logo {
-  font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.1rem; letter-spacing: 6px;
-  background: linear-gradient(90deg, var(--cyan), var(--magenta));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-  filter: drop-shadow(0 0 8px rgba(0,245,255,0.5));
+#toolstrip.vis { opacity:1; }
+.tp {
+  background:rgba(8,6,0,0.85);border:1px solid var(--ab);
+  border-radius:2px;padding:9px 7px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  transition:all 0.18s;backdrop-filter:blur(8px);
 }
+.tp:hover { border-color:var(--a);background:var(--a3); }
+.tp.act { border-color:var(--a);background:rgba(232,160,0,0.1);box-shadow:0 0 12px rgba(232,160,0,0.15); }
+.tp-lbl { font-size:0.35rem;letter-spacing:2px;color:var(--dim);writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg);text-transform:uppercase; }
+.tp-sw { width:9px;height:9px;border-radius:1px;border:1px solid rgba(255,255,255,0.15); }
+.tp-dot { border-radius:50%;background:var(--a); }
 
-.hstatus { display: flex; align-items: center; gap: 16px; font-size: 0.6rem; letter-spacing: 2px; color: rgba(0,245,255,0.4); }
-
-.dot {
-  width: 7px; height: 7px; border-radius: 50%; background: #1a1a2e;
-  display: inline-block; margin-right: 5px; transition: all 0.3s;
+/* panel toggle */
+#ptoggle {
+  position:fixed;right:16px;top:50%;transform:translateY(-50%);
+  width:26px;padding:9px 5px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  z-index:700;cursor:pointer;
+  background:rgba(8,6,0,0.75);border:1px solid var(--ab);border-radius:2px;
+  transition:all 0.18s;opacity:0;
 }
-.dot.on   { background: var(--green);   box-shadow: 0 0 8px var(--green);   animation: blink 1.8s infinite; }
-.dot.draw { background: var(--magenta); box-shadow: 0 0 8px var(--magenta); animation: blink 0.5s infinite; }
-.dot.warn { background: var(--yellow);  box-shadow: 0 0 8px var(--yellow); }
+#ptoggle.vis { opacity:1; }
+#ptoggle:hover { border-color:var(--a);background:var(--a3); }
+#ptoggle span { display:block;width:11px;height:1px;background:var(--a);transition:all 0.2s; }
 
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-/* LAYOUT */
-.main { display: flex; flex: 1; overflow: hidden; }
-
-.canvas-wrapper { position: relative; flex: 1; overflow: hidden; }
-
-.grid-bg {
-  position: absolute; inset: 0;
-  background-image:
-    linear-gradient(rgba(0,245,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,245,255,0.03) 1px, transparent 1px);
-  background-size: 50px 50px; z-index: 0;
+/* side panel */
+#fpanel {
+  position:fixed;right:-250px;top:0;bottom:0;width:232px;
+  background:rgba(6,5,0,0.96);border-left:1px solid var(--ab);
+  backdrop-filter:blur(16px);z-index:600;
+  transition:right 0.32s cubic-bezier(0.22,1,0.36,1);
+  overflow-y:auto;overflow-x:hidden;padding:50px 0 36px;
 }
+#fpanel.open { right:0; }
+#fpanel::-webkit-scrollbar{width:2px}
+#fpanel::-webkit-scrollbar-thumb{background:var(--ab)}
 
-#video {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  object-fit: cover; opacity: 0.13; transform: scaleX(-1); z-index: 1;
+.fp-s { border-bottom:1px solid var(--ab);padding:13px 15px; }
+.fp-t { font-family:'VT323',monospace;font-size:0.72rem;letter-spacing:4px;color:var(--dim);margin-bottom:9px; }
+.fp-colors { display:grid;grid-template-columns:repeat(3,1fr);gap:4px; }
+.sw { aspect-ratio:1;border-radius:2px;cursor:pointer;border:1px solid transparent;transition:all 0.15s; }
+.sw:hover { filter:brightness(1.3);transform:scale(1.06); }
+.sw.sel { border-color:rgba(255,255,255,0.65);transform:scale(1.1); }
+.fp-brushes { display:flex;gap:6px; }
+.bb { flex:1;height:32px;border:1px solid var(--ab);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:2px;transition:all 0.15s; }
+.bb:hover { border-color:var(--a); }
+.bb.sel { border-color:var(--a);background:var(--a3); }
+.bdot { border-radius:50%;background:var(--a); }
+.fp-row { display:flex;justify-content:space-between;align-items:center;margin-bottom:4px; }
+.fp-lbl { font-size:0.45rem;letter-spacing:1.5px;color:var(--dim); }
+.fp-val { font-family:'VT323',monospace;font-size:0.72rem;letter-spacing:1px;color:var(--a); }
+input[type=range] { width:100%;height:2px;-webkit-appearance:none;background:var(--ab);border-radius:1px;outline:none;margin-bottom:7px; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;height:9px;border-radius:1px;background:var(--a);cursor:pointer;box-shadow:0 0 5px var(--a); }
+.fpbtn { width:100%;padding:7px;background:transparent;border:1px solid var(--ab);color:var(--txt);font-family:'Space Mono',monospace;font-size:0.45rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:2px;margin-bottom:4px;transition:all 0.15s; }
+.fpbtn:hover { background:var(--a3);border-color:var(--a);color:var(--a); }
+.fpbtn:last-child{margin-bottom:0}
+.fpbtn.red { border-color:rgba(255,68,68,0.2);color:rgba(255,100,100,0.6); }
+.fpbtn.red:hover { background:rgba(255,68,68,0.07);border-color:var(--r);color:var(--r); }
+.fp-stat { display:flex;justify-content:space-between;margin-bottom:3px; }
+.fp-sk { font-size:0.43rem;color:var(--dim);letter-spacing:1px; }
+.fp-sv { font-family:'VT323',monospace;font-size:0.65rem;letter-spacing:1px;color:var(--a); }
+#dbpanel { font-size:0.45rem;line-height:1.9;color:rgba(200,168,75,0.5); }
+.drow { display:flex;justify-content:space-between; }
+.dval { font-family:'VT323',monospace;font-size:0.65rem;color:var(--a); }
+.dbar { height:1px;background:var(--ab);margin:3px 0 5px;overflow:hidden; }
+.dfill { height:100%;background:var(--a);transition:width 0.2s; }
+.dtip { font-size:0.4rem;color:var(--dim);line-height:1.7;margin-top:6px; }
+
+/* gesture modal btn */
+#gBtn {
+  position:fixed;bottom:18px;right:18px;
+  padding:7px 13px;background:rgba(8,6,0,0.85);
+  border:1px solid var(--ab);border-radius:2px;
+  color:var(--dim);font-family:'Space Mono',monospace;
+  font-size:0.42rem;letter-spacing:2px;cursor:pointer;
+  z-index:700;transition:all 0.18s;opacity:0;
 }
+#gBtn.vis { opacity:1; }
+#gBtn:hover { border-color:var(--a);color:var(--a);background:var(--a3); }
 
-#drawCanvas {
-  position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2;
+/* gesture modal */
+#gmodal {
+  position:fixed;inset:0;background:rgba(0,0,0,0.8);
+  z-index:800;display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity 0.22s;
+  backdrop-filter:blur(6px);
 }
-
-#overlayCanvas {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  z-index: 3; pointer-events: none;
+#gmodal.open { opacity:1;pointer-events:all; }
+.gm-box {
+  background:rgba(6,5,0,0.97);border:1px solid var(--ab);
+  border-radius:3px;padding:26px 26px 22px;width:350px;max-width:92vw;
+  box-shadow:0 0 60px rgba(0,0,0,0.9);
 }
-
-/* SIDEBAR */
-.sidebar {
-  width: 190px; flex-shrink: 0;
-  border-left: 1px solid var(--border);
-  background: rgba(0,0,0,0.6);
-  backdrop-filter: blur(12px);
-  display: flex; flex-direction: column;
-  overflow-y: auto; z-index: 100;
+.gm-title { font-family:'VT323',monospace;font-size:1.1rem;letter-spacing:6px;color:var(--a);margin-bottom:3px; }
+.gm-sub { font-size:0.42rem;letter-spacing:2px;color:var(--dim);margin-bottom:18px; }
+.gm-grid { display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:18px; }
+.gm-card {
+  border:1px solid var(--ab);border-radius:2px;padding:11px 9px;
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  background:var(--a3);transition:all 0.2s;
 }
+.gm-card.off { opacity:0.32; }
+.gm-left { display:flex;align-items:center;gap:7px; }
+.gm-icon { font-size:1.25rem;line-height:1; }
+.gm-name { font-size:0.46rem;letter-spacing:1.5px;color:var(--a);display:block;margin-bottom:2px; }
+.gm-desc { font-size:0.36rem;letter-spacing:0.5px;color:var(--dim); }
+.tgl { position:relative;width:26px;height:14px;flex-shrink:0;cursor:pointer; }
+.tgl input { opacity:0;width:0;height:0; }
+.tgl-track { position:absolute;inset:0;background:rgba(232,160,0,0.08);border:1px solid var(--ab);border-radius:7px;transition:all 0.2s; }
+.tgl input:checked + .tgl-track { background:rgba(232,160,0,0.22);border-color:var(--a);box-shadow:0 0 8px rgba(232,160,0,0.18); }
+.tgl-thumb { position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:var(--dim);transition:all 0.2s; }
+.tgl input:checked ~ .tgl-thumb { transform:translateX(12px);background:var(--a);box-shadow:0 0 5px var(--a); }
+.gm-close { width:100%;padding:8px;background:transparent;border:1px solid var(--ab);color:var(--txt);font-family:'Space Mono',monospace;font-size:0.46rem;letter-spacing:3px;text-transform:uppercase;cursor:pointer;border-radius:2px;transition:all 0.18s; }
+.gm-close:hover { background:var(--a3);border-color:var(--a);color:var(--a); }
 
-.panel { border-bottom: 1px solid var(--border); padding: 12px; }
-
-.ptitle {
-  font-family: 'Orbitron', sans-serif; font-size: 0.5rem;
-  letter-spacing: 3px; color: rgba(0,245,255,0.35);
-  text-transform: uppercase; margin-bottom: 10px;
+/* toast */
+#toast {
+  position:fixed;top:54px;left:50%;transform:translateX(-50%);
+  padding:5px 16px;background:rgba(6,5,0,0.92);
+  border:1px solid var(--ab);border-radius:2px;
+  font-family:'VT323',monospace;font-size:0.82rem;letter-spacing:3px;color:var(--a);
+  z-index:900;pointer-events:none;opacity:0;transition:opacity 0.18s;white-space:nowrap;
 }
+#toast.show { opacity:1; }
 
-.colors { display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; }
-.swatch {
-  aspect-ratio: 1; border-radius: 4px; cursor: pointer;
-  border: 2px solid transparent; transition: all 0.2s;
+/* status bar */
+#statusbar {
+  position:fixed;bottom:0;left:0;right:0;height:34px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 48px;z-index:500;pointer-events:none;
+  background:linear-gradient(to top,rgba(8,6,0,0.88),transparent);
 }
-.swatch:hover { filter: brightness(1.3); }
-.swatch.sel { border-color: #fff; transform: scale(1.1); }
+.gstrip { display:flex;gap:12px;align-items:center; }
+.gs { display:flex;align-items:center;gap:4px;font-size:0.4rem;letter-spacing:1.5px;color:var(--dim);transition:color 0.2s; }
+.gs.act { color:var(--a); }
+.gs.off { opacity:0.18;text-decoration:line-through; }
+.gs-e { font-size:0.72rem; }
+.modetag { font-family:'VT323',monospace;font-size:0.8rem;letter-spacing:3px;color:var(--a2); }
 
-.brushes { display: flex; align-items: center; justify-content: space-around; }
-.bbtn {
-  width: 40px; height: 40px; border-radius: 50%;
-  border: 1px solid var(--border); background: transparent;
-  cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
-}
-.bbtn:hover { border-color: var(--cyan); }
-.bbtn.sel { border-color: var(--cyan); background: rgba(0,245,255,0.1); box-shadow: 0 0 10px rgba(0,245,255,0.2); }
-.bdot { background: white; border-radius: 50%; }
-
-.srow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-.slabel { font-size: 0.56rem; letter-spacing: 1px; color: rgba(0,245,255,0.4); }
-.sval   { font-size: 0.6rem; color: var(--cyan); }
-
-input[type=range] {
-  width: 100%; height: 3px; -webkit-appearance: none;
-  background: var(--border); border-radius: 2px; outline: none;
-}
-input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 12px; height: 12px;
-  border-radius: 50%; background: var(--cyan); cursor: pointer; box-shadow: 0 0 5px var(--cyan);
-}
-
-.btn {
-  width: 100%; padding: 8px; background: transparent;
-  border: 1px solid var(--border); color: var(--cyan);
-  font-family: 'Share Tech Mono', monospace; font-size: 0.6rem;
-  letter-spacing: 2px; text-transform: uppercase;
-  cursor: pointer; transition: all 0.2s; border-radius: 3px; margin-bottom: 5px;
-}
-.btn:hover { background: rgba(0,245,255,0.07); border-color: var(--cyan); }
-.btn:last-child { margin-bottom: 0; }
-.btn.red { border-color: rgba(255,0,80,0.3); color: #ff4466; }
-.btn.red:hover { background: rgba(255,0,80,0.08); border-color: #ff4466; }
-
-.stat { display: flex; justify-content: space-between; margin-bottom: 4px; }
-.sk { font-size: 0.52rem; color: rgba(0,245,255,0.35); letter-spacing: 1px; }
-.sv { font-size: 0.58rem; color: var(--cyan); }
-
-/* DEBUG PANEL */
-#debugPanel {
-  background: rgba(0,0,0,0.85);
-  border: 1px solid rgba(255,200,0,0.3);
-  border-radius: 6px;
-  padding: 10px;
-  font-size: 0.55rem;
-  line-height: 1.8;
-  color: rgba(255,220,0,0.8);
-}
-#debugPanel .dtitle { color: var(--yellow); font-size: 0.52rem; letter-spacing: 2px; margin-bottom: 6px; }
-#debugPanel .drow   { display: flex; justify-content: space-between; }
-#debugPanel .dval   { color: #fff; }
-#debugPanel .dbar   { height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 2px; margin-bottom:4px; overflow:hidden; }
-#debugPanel .dfill  { height: 100%; background: var(--yellow); transition: width 0.2s; }
-.dtip {
-  font-size: 0.5rem; letter-spacing: 1px;
-  color: rgba(255,200,0,0.55); line-height: 1.6; margin-top: 6px;
-}
-
-/* GESTURE BAR */
-.gbar {
-  position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
-  display: flex; gap: 16px;
-  background: rgba(0,0,0,0.75); border: 1px solid var(--border);
-  border-radius: 30px; padding: 8px 20px;
-  backdrop-filter: blur(10px); z-index: 200; pointer-events: none;
-}
-.gi { display: flex; align-items: center; gap: 6px; font-size: 0.56rem; letter-spacing: 1px; color: rgba(0,245,255,0.5); }
-.gi span { font-size: 0.95rem; }
-
-/* START OVERLAY */
+/* OVERLAY */
 #overlay {
-  position: fixed; inset: 0;
-  background: rgba(2,4,8,0.97);
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  z-index: 500; gap: 20px;
+  position:fixed;inset:0;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:1000;gap:16px;
 }
-
-.otitle {
-  font-family: 'Orbitron', sans-serif; font-size: 2.6rem; font-weight: 900;
-  letter-spacing: 10px; text-align: center;
-  background: linear-gradient(135deg, var(--cyan), var(--magenta));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-  filter: drop-shadow(0 0 28px rgba(0,245,255,0.4));
-  animation: flicker 5s infinite;
+.ov-logo {
+  font-family:'VT323',monospace;font-size:4.8rem;letter-spacing:18px;
+  color:var(--a);text-shadow:0 0 40px rgba(232,160,0,0.45),0 0 2px rgba(232,160,0,0.9);
+  animation:crt 7s infinite;line-height:1;
 }
-@keyframes flicker { 0%,88%,100%{opacity:1} 90%{opacity:.7} 93%{opacity:1} 96%{opacity:.55} }
-
-.osub { font-size: 0.72rem; letter-spacing: 4px; color: rgba(0,245,255,0.4); }
-
-.cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; max-width: 560px; }
-.card { border: 1px solid var(--border); border-radius: 8px; padding: 13px; text-align: center; background: var(--panel); }
-.card-icon { font-size: 1.6rem; margin-bottom: 6px; }
-.card-text { font-size: 0.56rem; letter-spacing: 1px; color: rgba(0,245,255,0.5); line-height: 1.6; }
-
-/* Brave warning */
-.brave-tip {
-  max-width: 440px; text-align: center;
-  border: 1px solid rgba(255,165,0,0.4);
-  border-radius: 8px; padding: 12px;
-  font-size: 0.58rem; letter-spacing: 1px; line-height: 1.8;
-  color: rgba(255,165,0,0.8);
-  background: rgba(255,165,0,0.05);
+@keyframes crt{0%,88%,100%{opacity:1}90%{opacity:.55}91%{opacity:1}95%{opacity:.7}96%{opacity:1}}
+.ov-sub { font-size:0.52rem;letter-spacing:6px;color:var(--dim);margin-top:-6px; }
+.ov-warn {
+  border:1px solid rgba(232,160,0,0.17);border-radius:2px;
+  padding:10px 18px;font-size:0.48rem;letter-spacing:1px;line-height:1.9;
+  color:rgba(232,160,0,0.5);background:var(--a3);max-width:380px;text-align:center;
 }
-.brave-tip b { color: #ffaa00; }
-
-#statusMsg { font-size: 0.62rem; letter-spacing: 3px; color: rgba(0,245,255,0.45); min-height: 1.2em; text-align: center; }
-
-.pbar { width: 260px; height: 2px; background: var(--border); border-radius: 2px; overflow: hidden; }
-#pfill { height: 100%; background: linear-gradient(90deg, var(--cyan), var(--magenta)); width: 0%; transition: width 0.4s; box-shadow: 0 0 8px var(--cyan); }
-
-.obtn {
-  padding: 12px 42px; background: transparent;
-  border: 1px solid var(--cyan); color: var(--cyan);
-  font-family: 'Orbitron', sans-serif; font-size: 0.78rem; letter-spacing: 5px;
-  text-transform: uppercase; cursor: pointer; transition: all 0.3s; border-radius: 4px;
+.ov-warn b { color:var(--a); }
+.ov-gs { display:grid;grid-template-columns:repeat(3,1fr);gap:5px;max-width:390px;width:100%; }
+.ov-g { border:1px solid var(--ab);border-radius:2px;padding:9px 7px;text-align:center;background:var(--a3); }
+.ov-gi { font-size:1.3rem;margin-bottom:3px; }
+.ov-gt { font-size:0.38rem;letter-spacing:1px;color:var(--dim);line-height:1.6; }
+#statusMsg { font-family:'VT323',monospace;font-size:0.85rem;letter-spacing:3px;color:var(--a2);min-height:1.2em;text-align:center; }
+.ov-pb { width:200px;height:1px;background:var(--ab); }
+#pfill { height:100%;background:var(--a);width:0%;transition:width 0.4s;box-shadow:0 0 5px var(--a); }
+.ov-btn {
+  padding:10px 42px;background:transparent;border:1px solid var(--a);color:var(--a);
+  font-family:'VT323',monospace;font-size:1.05rem;letter-spacing:6px;
+  text-transform:uppercase;cursor:pointer;border-radius:2px;transition:all 0.25s;
 }
-.obtn:hover { background: rgba(0,245,255,0.07); box-shadow: 0 0 25px rgba(0,245,255,0.25); }
-.obtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.ov-btn:hover { background:var(--a3);box-shadow:0 0 22px rgba(232,160,0,0.18); }
+.ov-btn:disabled { opacity:0.3;cursor:not-allowed; }
+
+/* ── INTRO SCREEN ── */
+#introScreen {
+  position:fixed;inset:0;background:rgba(6,5,0,0.97);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:950;gap:18px;
+  opacity:0;pointer-events:none;
+  transition:opacity 0.5s;
+  backdrop-filter:blur(4px);
+  padding:20px;
+}
+#introScreen.show { opacity:1;pointer-events:all; }
+.is-title { font-family:'VT323',monospace;font-size:1.3rem;letter-spacing:8px;color:var(--a);margin-bottom:2px; }
+.is-sub { font-size:0.44rem;letter-spacing:4px;color:var(--dim);margin-bottom:4px; }
+.is-divider { width:320px;height:1px;background:var(--ab); }
+
+.is-sections { display:flex;gap:16px;max-width:700px;width:100%; }
+
+.is-col { flex:1;display:flex;flex-direction:column;gap:8px; }
+.is-col-title { font-family:'VT323',monospace;font-size:0.72rem;letter-spacing:4px;color:var(--a);opacity:0.6;margin-bottom:2px; }
+
+.is-gesture-list { display:flex;flex-direction:column;gap:5px; }
+.is-g {
+  display:flex;align-items:center;gap:10px;
+  border:1px solid var(--ab);border-radius:2px;
+  padding:7px 10px;background:var(--a3);
+}
+.is-g-emoji { font-size:1.1rem;width:24px;text-align:center; }
+.is-g-info {}
+.is-g-name { font-size:0.48rem;letter-spacing:2px;color:var(--a);display:block;margin-bottom:1px; }
+.is-g-desc { font-size:0.38rem;letter-spacing:0.5px;color:var(--dim); }
+
+.is-tips { display:flex;flex-direction:column;gap:6px; }
+.is-tip {
+  border:1px solid var(--ab);border-radius:2px;
+  padding:8px 10px;background:var(--a3);
+  font-size:0.42rem;letter-spacing:1px;color:var(--dim);line-height:1.8;
+}
+.is-tip b { color:var(--a); }
+.is-tip .is-tip-title { font-family:'VT323',monospace;font-size:0.65rem;letter-spacing:3px;color:var(--a);display:block;margin-bottom:3px; }
+
+.is-start {
+  padding:10px 48px;background:transparent;border:1px solid var(--a);color:var(--a);
+  font-family:'VT323',monospace;font-size:1.05rem;letter-spacing:6px;
+  text-transform:uppercase;cursor:pointer;border-radius:2px;transition:all 0.25s;
+  margin-top:4px;
+}
+.is-start:hover { background:var(--a3);box-shadow:0 0 22px rgba(232,160,0,0.18); }
 </style>
 <script src="./index_files/camera_utils.js.download" crossorigin="anonymous"></script><script src="./index_files/drawing_utils.js.download" crossorigin="anonymous"></script></head>
 <body>
 
-<!-- OVERLAY -->
+<!-- STARTUP OVERLAY -->
 <div id="overlay">
-  <div class="otitle">AIR DRAW</div>
-  <div class="osub">DRAW IN THE AIR WITH YOUR FINGER</div>
-
-  <div class="brave-tip">
-    🦁 <b>BRAVE USERS:</b> Click the <b>Shields icon (🛡)</b> in the address bar<br>
-    and turn shields <b>OFF</b> for this page — this allows the<br>
-    hand-tracking model to load from CDN.
+  <div class="ov-logo">AIR DRAW</div>
+  <div class="ov-sub">GESTURE · DRAW · V1.2</div>
+  <div class="ov-warn">
+    🦁 <b>BRAVE USERS:</b> Click the <b>Shields icon</b> in the address bar<br>
+    and turn shields <b>OFF</b> for this page before activating.
   </div>
-
-  <div class="cards">
-    <div class="card"><div class="card-icon">☝️</div><div class="card-text">POINT INDEX FINGER<br>TO DRAW</div></div>
-    <div class="card"><div class="card-icon">🤏</div><div class="card-text">PINCH THUMB + INDEX<br>TO LIFT PEN</div></div>
-    <div class="card"><div class="card-icon">✋</div><div class="card-text">OPEN PALM<br>TO UNDO STROKE</div></div>
-    <div class="card"><div class="card-icon">✌️</div><div class="card-text">PEACE SIGN<br>NEXT COLOR</div></div>
-    <div class="card"><div class="card-icon">✊</div><div class="card-text">FIST<br>ERASE MODE</div></div>
-    <div class="card"><div class="card-icon">🤙</div><div class="card-text">HANG LOOSE<br>CLEAR ALL</div></div>
+  <div class="ov-gs">
+    <div class="ov-g"><div class="ov-gi">☝️</div><div class="ov-gt">INDEX UP<br>DRAW</div></div>
+    <div class="ov-g"><div class="ov-gi">🤏</div><div class="ov-gt">PINCH<br>LIFT PEN</div></div>
+    <div class="ov-g"><div class="ov-gi">✋</div><div class="ov-gt">OPEN PALM<br>UNDO</div></div>
+    <div class="ov-g"><div class="ov-gi">✌️</div><div class="ov-gt">PEACE<br>NEXT COLOR</div></div>
+    <div class="ov-g"><div class="ov-gi">✊</div><div class="ov-gt">FIST<br>ERASE</div></div>
+    <div class="ov-g"><div class="ov-gi">🤙</div><div class="ov-gt">HANG LOOSE<br>CLEAR ALL</div></div>
   </div>
-
-  <div id="statusMsg">CLICK ACTIVATE TO BEGIN</div>
-  <div class="pbar"><div id="pfill"></div></div>
-  <button class="obtn" id="startBtn" onclick="startApp()">ACTIVATE</button>
+  <div id="statusMsg">INITIALIZING</div>
+  <div class="ov-pb"><div id="pfill"></div></div>
+  <button class="ov-btn" id="startBtn" onclick="startApp()">ACTIVATE</button>
 </div>
 
-<!-- HEADER -->
-<header>
-  <div class="logo">AIR DRAW <span style="font-size:0.45rem;letter-spacing:3px;opacity:0.5">v1.2</span></div>
-  <div class="hstatus">
-    <span><i class="dot" id="dCam"></i>CAM</span>
-    <span><i class="dot" id="dHand"></i>HAND</span>
-    <span><i class="dot" id="dDraw"></i>DRAW</span>
-    <span><i class="dot" id="dModel"></i>MODEL</span>
-  </div>
-</header>
+<!-- INTRO SCREEN (shown after model loads) -->
+<div id="introScreen">
+  <div class="is-title">HOW TO USE</div>
+  <div class="is-sub">QUICK GUIDE BEFORE YOU START</div>
+  <div class="is-divider"></div>
 
-<div class="main">
-  <div class="canvas-wrapper">
-    <div class="grid-bg"></div>
-    <video id="video" autoplay="" playsinline="" muted=""></video>
-    <canvas id="drawCanvas"></canvas>
-    <canvas id="overlayCanvas"></canvas>
-  </div>
-
-  <div class="sidebar">
-
-    <div class="panel">
-      <div class="ptitle">// COLOR</div>
-      <div class="colors" id="colorGrid"><div class="swatch sel" style="background: rgb(0, 245, 255); box-shadow: rgb(0, 245, 255) 0px 0px 4px;"></div><div class="swatch" style="background: rgb(255, 0, 170); box-shadow: rgb(255, 0, 170) 0px 0px 4px;"></div><div class="swatch" style="background: rgb(255, 215, 0); box-shadow: rgb(255, 215, 0) 0px 0px 4px;"></div><div class="swatch" style="background: rgb(0, 255, 136); box-shadow: rgb(0, 255, 136) 0px 0px 4px;"></div><div class="swatch" style="background: rgb(255, 102, 0); box-shadow: rgb(255, 102, 0) 0px 0px 4px;"></div><div class="swatch" style="background: rgb(204, 0, 255); box-shadow: rgb(204, 0, 255) 0px 0px 4px;"></div><div class="swatch" style="background: rgb(255, 255, 255); box-shadow: rgb(255, 255, 255) 0px 0px 4px;"></div><div class="swatch" style="background: rgb(255, 68, 102); box-shadow: rgb(255, 68, 102) 0px 0px 4px;"></div><div class="swatch" style="background: rgb(0, 170, 255); box-shadow: rgb(0, 170, 255) 0px 0px 4px;"></div></div>
-    </div>
-
-    <div class="panel">
-      <div class="ptitle">// BRUSH</div>
-      <div class="brushes" id="brushRow"><button class="bbtn"><div class="bdot" style="width: 4.5px; height: 4.5px;"></div></button><button class="bbtn sel"><div class="bdot" style="width: 10.5px; height: 10.5px;"></div></button><button class="bbtn"><div class="bdot" style="width: 21px; height: 21px;"></div></button></div>
-    </div>
-
-    <div class="panel">
-      <div class="ptitle">// OPACITY</div>
-      <div class="srow"><span class="slabel">ALPHA</span><span class="sval" id="vOpacity">100%</span></div>
-      <input type="range" id="rOpacity" min="10" max="100" value="100">
-    </div>
-
-    <div class="panel">
-      <div class="ptitle">// GLOW</div>
-      <div class="srow"><span class="slabel">BLUR</span><span class="sval" id="vGlow">14px</span></div>
-      <input type="range" id="rGlow" min="0" max="40" value="14">
-    </div>
-
-    <div class="panel">
-      <div class="ptitle">// SMOOTH</div>
-      <div class="srow"><span class="slabel">LEVEL</span><span class="sval" id="vSmooth">5</span></div>
-      <input type="range" id="rSmooth" min="1" max="14" value="5">
-    </div>
-
-    <div class="panel">
-      <div class="ptitle">// SENSITIVITY</div>
-      <div class="srow"><span class="slabel">PINCH DIST</span><span class="sval" id="vPinch">0.07</span></div>
-      <input type="range" id="rPinch" min="3" max="15" value="7">
-      <div style="height:6px"></div>
-      <div class="srow"><span class="slabel">CONFIDENCE</span><span class="sval" id="vConf">0.65</span></div>
-      <input type="range" id="rConf" min="30" max="90" value="65">
-    </div>
-
-    <div class="panel">
-      <div class="ptitle">// ACTIONS</div>
-      <button class="btn" onclick="undoLast()">⌫ UNDO STROKE</button>
-      <button class="btn red" onclick="clearAll()">⊘ CLEAR ALL</button>
-      <button class="btn" onclick="saveImg()">↓ SAVE PNG</button>
-    </div>
-
-    <div class="panel">
-      <div class="ptitle">// STATS</div>
-      <div class="stat"><span class="sk">STROKES</span><span class="sv" id="sStrokes">0</span></div>
-      <div class="stat"><span class="sk">POINTS</span><span class="sv" id="sPoints">0</span></div>
-      <div class="stat"><span class="sk">FPS</span><span class="sv" id="sFps">--</span></div>
-    </div>
-
-    <!-- DEBUG PANEL -->
-    <div class="panel">
-      <div id="debugPanel">
-        <div class="dtitle">// HAND DEBUG</div>
-        <div class="drow"><span>MODEL</span><span class="dval" id="dbModel">loading...</span></div>
-        <div class="drow"><span>DETECTED</span><span class="dval" id="dbDetected">NO</span></div>
-        <div class="drow"><span>CONFIDENCE</span><span class="dval" id="dbConf">--</span></div>
-        <div class="dbar"><div class="dfill" id="dbConfBar" style="width:0%"></div></div>
-        <div class="drow"><span>GESTURE</span><span class="dval" id="dbGesture">--</span></div>
-        <div class="drow"><span>PINCH DIST</span><span class="dval" id="dbPinch">--</span></div>
-        <div class="drow"><span>FINGERS UP</span><span class="dval" id="dbFingers">--</span></div>
-        <div class="dtip">
-          If DETECTED stays NO:<br>
-          • Disable Brave Shields<br>
-          • Check browser console<br>
-          • Try better lighting<br>
-          • Move hand closer to cam
-        </div>
+  <div class="is-sections">
+    <!-- Gestures column -->
+    <div class="is-col">
+      <div class="is-col-title">// GESTURES</div>
+      <div class="is-gesture-list">
+        <div class="is-g"><div class="is-g-emoji">☝️</div><div class="is-g-info"><span class="is-g-name">DRAW</span><span class="is-g-desc">Point index finger to draw in the air</span></div></div>
+        <div class="is-g"><div class="is-g-emoji">🤏</div><div class="is-g-info"><span class="is-g-name">LIFT PEN</span><span class="is-g-desc">Pinch thumb + index to stop drawing</span></div></div>
+        <div class="is-g"><div class="is-g-emoji">✋</div><div class="is-g-info"><span class="is-g-name">UNDO</span><span class="is-g-desc">Open palm to remove last stroke</span></div></div>
+        <div class="is-g"><div class="is-g-emoji">✌️</div><div class="is-g-info"><span class="is-g-name">NEXT COLOR</span><span class="is-g-desc">Peace sign to cycle through colors</span></div></div>
+        <div class="is-g"><div class="is-g-emoji">✊</div><div class="is-g-info"><span class="is-g-name">ERASE</span><span class="is-g-desc">Hold fist to erase nearby strokes</span></div></div>
+        <div class="is-g"><div class="is-g-emoji">🤙</div><div class="is-g-info"><span class="is-g-name">CLEAR ALL</span><span class="is-g-desc">Hold hang loose to wipe canvas</span></div></div>
       </div>
     </div>
 
+    <!-- Tips column -->
+    <div class="is-col">
+      <div class="is-col-title">// SETTINGS &amp; TIPS</div>
+      <div class="is-tips">
+        <div class="is-tip">
+          <span class="is-tip-title">⊕ GESTURE CONFIG</span>
+          Click the <b>⊕ GESTURES</b> button at the <b>bottom-right</b> of the screen to enable or disable individual gestures at any time.
+        </div>
+        <div class="is-tip">
+          <span class="is-tip-title">≡ SETTINGS PANEL</span>
+          Click the <b>3-line menu</b> on the <b>right edge</b> to open the settings panel — change colors, brush size, opacity, glow, and sensitivity.
+        </div>
+        <div class="is-tip">
+          <span class="is-tip-title">💡 BEST RESULTS</span>
+          Use in <b>good lighting</b>. Keep your hand <b>50–80cm</b> from the camera. Fist and hang loose need to be <b>held for 0.3s</b> to prevent accidents.
+        </div>
+        <div class="is-tip">
+          <span class="is-tip-title">↓ SAVE YOUR ART</span>
+          Open the settings panel and click <b>SAVE PNG</b> to download your drawing with a dark background.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="is-start" onclick="dismissIntro()">START DRAWING</button>
+</div>
+
+<!-- CANVAS -->
+<video id="video" autoplay="" playsinline="" muted=""></video>
+<canvas id="drawCanvas"></canvas>
+<canvas id="overlayCanvas"></canvas>
+
+<!-- CORNERS -->
+<div class="corner tl"></div><div class="corner tr"></div>
+<div class="corner bl"></div><div class="corner br"></div>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="logo">AIR DRAW</div>
+  <div class="sysstatus">
+    <div class="sig"><div class="sd" id="dCam"></div><span>CAM</span></div>
+    <div class="sig"><div class="sd" id="dHand"></div><span>HAND</span></div>
+    <div class="sig"><div class="sd" id="dDraw"></div><span>DRAW</span></div>
+    <div class="sig"><div class="sd" id="dModel"></div><span>MDL</span></div>
   </div>
 </div>
 
-<div class="gbar">
-  <div class="gi"><span>☝️</span> DRAW</div>
-  <div class="gi"><span>🤏</span> LIFT PEN</div>
-  <div class="gi"><span>✋</span> UNDO</div>
-  <div class="gi"><span>✌️</span> COLOR</div>
-  <div class="gi"><span>✊</span> ERASE</div>
-  <div class="gi"><span>🤙</span> CLEAR</div>
+<!-- TIMECODE -->
+<div id="tc">00:00:21:25</div>
+
+<!-- LEFT TOOL STRIP -->
+<div id="toolstrip">
+  <div class="tp" id="swatchPill" title="Active color">
+    <div class="tp-sw" id="curSwatch" style="background: rgb(232, 160, 0);"></div>
+    <div class="tp-lbl">col</div>
+  </div>
+  <div class="tp" id="bp1" onclick="setBrush(3)" title="Fine">
+    <div class="tp-dot" style="width:4px;height:4px"></div>
+    <div class="tp-lbl">fine</div>
+  </div>
+  <div class="tp act" id="bp2" onclick="setBrush(7)" title="Medium">
+    <div class="tp-dot" style="width:8px;height:8px"></div>
+    <div class="tp-lbl">med</div>
+  </div>
+  <div class="tp" id="bp3" onclick="setBrush(14)" title="Thick">
+    <div class="tp-dot" style="width:14px;height:14px"></div>
+    <div class="tp-lbl">thk</div>
+  </div>
+</div>
+
+<!-- PANEL TOGGLE -->
+<div id="ptoggle" onclick="togglePanel()">
+  <span></span><span></span><span></span>
+</div>
+
+<!-- SIDE PANEL -->
+<div id="fpanel">
+  <div class="fp-s">
+    <div class="fp-t">// COLOR</div>
+    <div class="fp-colors" id="colorGrid"><div class="sw sel" style="background: rgb(232, 160, 0);"></div><div class="sw" style="background: rgb(255, 64, 64);"></div><div class="sw" style="background: rgb(77, 255, 145);"></div><div class="sw" style="background: rgb(0, 200, 255);"></div><div class="sw" style="background: rgb(255, 0, 170);"></div><div class="sw" style="background: rgb(255, 215, 0);"></div><div class="sw" style="background: rgb(255, 102, 0);"></div><div class="sw" style="background: rgb(204, 0, 255);"></div><div class="sw" style="background: rgb(255, 255, 255);"></div></div>
+  </div>
+  <div class="fp-s">
+    <div class="fp-t">// BRUSH</div>
+    <div class="fp-brushes" id="brushRow"><button class="bb"><div class="bdot" style="width: 3.9px; height: 3.9px;"></div></button><button class="bb sel"><div class="bdot" style="width: 9.1px; height: 9.1px;"></div></button><button class="bb"><div class="bdot" style="width: 18.2px; height: 18.2px;"></div></button></div>
+  </div>
+  <div class="fp-s">
+    <div class="fp-t">// PARAMETERS</div>
+    <div class="fp-row"><span class="fp-lbl">OPACITY</span><span class="fp-val" id="vOpacity">100%</span></div>
+    <input type="range" id="rOpacity" min="10" max="100" value="100">
+    <div class="fp-row"><span class="fp-lbl">GLOW</span><span class="fp-val" id="vGlow">14px</span></div>
+    <input type="range" id="rGlow" min="0" max="40" value="14">
+    <div class="fp-row"><span class="fp-lbl">SMOOTH</span><span class="fp-val" id="vSmooth">5</span></div>
+    <input type="range" id="rSmooth" min="1" max="14" value="5">
+    <div class="fp-row"><span class="fp-lbl">PINCH DIST</span><span class="fp-val" id="vPinch">0.07</span></div>
+    <input type="range" id="rPinch" min="3" max="15" value="7">
+    <div class="fp-row"><span class="fp-lbl">CONFIDENCE</span><span class="fp-val" id="vConf">0.65</span></div>
+    <input type="range" id="rConf" min="30" max="90" value="65">
+  </div>
+  <div class="fp-s">
+    <div class="fp-t">// ACTIONS</div>
+    <button class="fpbtn" onclick="undoLast()">⌫ UNDO</button>
+    <button class="fpbtn red" onclick="clearAll()">⊘ CLEAR ALL</button>
+    <button class="fpbtn" onclick="saveImg()">↓ SAVE PNG</button>
+  </div>
+  <div class="fp-s">
+    <div class="fp-t">// STATS</div>
+    <div class="fp-stat"><span class="fp-sk">STROKES</span><span class="fp-sv" id="sStrokes">0</span></div>
+    <div class="fp-stat"><span class="fp-sk">POINTS</span><span class="fp-sv" id="sPoints">0</span></div>
+    <div class="fp-stat"><span class="fp-sk">FPS</span><span class="fp-sv" id="sFps">--</span></div>
+    <div class="fp-stat"><span class="fp-sk">MODE</span><span class="fp-sv" id="sModeTag">--</span></div>
+  </div>
+  <div class="fp-s">
+    <div class="fp-t">// HAND DEBUG</div>
+    <div id="dbpanel">
+      <div class="drow"><span>MODEL</span><span class="dval" id="dbModel">--</span></div>
+      <div class="drow"><span>DETECTED</span><span class="dval" id="dbDetected">NO</span></div>
+      <div class="drow"><span>CONFIDENCE</span><span class="dval" id="dbConf">--</span></div>
+      <div class="dbar"><div class="dfill" id="dbConfBar" style="width:0%"></div></div>
+      <div class="drow"><span>GESTURE</span><span class="dval" id="dbGesture">--</span></div>
+      <div class="drow"><span>PINCH</span><span class="dval" id="dbPinch">--</span></div>
+      <div class="drow"><span>FINGERS</span><span class="dval" id="dbFingers">--</span></div>
+      <div class="dtip">
+        If DETECTED=NO:<br>
+        · Disable Brave Shields<br>
+        · Check browser console<br>
+        · Improve lighting
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- GESTURE BTN -->
+<button id="gBtn" onclick="openGModal()">⊕ GESTURES</button>
+
+<!-- GESTURE MODAL -->
+<div id="gmodal" onclick="gModalBg(event)">
+  <div class="gm-box">
+    <div class="gm-title">GESTURE CONFIG</div>
+    <div class="gm-sub">ENABLE / DISABLE INDIVIDUAL GESTURES</div>
+    <div class="gm-grid" id="gGrid"></div>
+    <button class="gm-close" onclick="closeGModal()">CLOSE</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- STATUS BAR -->
+<div id="statusbar">
+  <div class="gstrip" id="gstrip"></div>
+  <div class="modetag" id="modeTag">--</div>
 </div>
 
 <script>
-// ─── CONFIG ──────────────────────────────────────────────────────────────────
-const COLORS  = ['#00f5ff','#ff00aa','#ffd700','#00ff88','#ff6600','#cc00ff','#ffffff','#ff4466','#00aaff'];
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const COLORS  = ['#e8a000','#ff4040','#4dff91','#00c8ff','#ff00aa','#ffd700','#ff6600','#cc00ff','#ffffff'];
 const BRUSHSZ = [3, 7, 14];
 
-let color   = '#00f5ff';
-let brush   = 7;
-let opacity = 1.0;
-let glow    = 14;
-let smooth  = 5;
-let pinchThreshold = 0.07;
-let confThreshold  = 0.65;
+let color = '#e8a000', brush = 7, opacity = 1.0, glow = 14, smooth = 5;
+let pinchThreshold = 0.07, confThreshold = 0.65;
 
-let strokes    = [];
-let curStroke  = [];
-let totalPts   = 0;
-let drawing    = false;
-let eraseArmed = false;
-let eraseMode  = false;
-let peaceArmed = false;
-let hangArmed  = false;
-let colorIdx   = 0;
-let posBuffer  = [];
-let lastX = null, lastY = null;
-let fpsT = Date.now(), fpsN = 0;
+// ── GESTURES ──────────────────────────────────────────────────────────────────
+const GESTURES = [
+  { id:'draw',  emoji:'☝️', name:'DRAW',      desc:'Index finger up',   enabled:true },
+  { id:'pinch', emoji:'🤏', name:'LIFT PEN',  desc:'Pinch thumb+index', enabled:true },
+  { id:'palm',  emoji:'✋', name:'UNDO',       desc:'Open palm',         enabled:true },
+  { id:'peace', emoji:'✌️', name:'NEXT COLOR',desc:'Peace sign',        enabled:true },
+  { id:'fist',  emoji:'✊', name:'ERASE',      desc:'Closed fist',       enabled:true },
+  { id:'hang',  emoji:'🤙', name:'CLEAR ALL', desc:'Hang loose',        enabled:true },
+];
+const gOn = id => GESTURES.find(g=>g.id===id)?.enabled ?? true;
 
-const video   = document.getElementById('video');
-const drawCvs = document.getElementById('drawCanvas');
-const ovCvs   = document.getElementById('overlayCanvas');
-const dctx    = drawCvs.getContext('2d');
-const octx    = ovCvs.getContext('2d');
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let strokes=[],curStroke=[],totalPts=0;
+let drawing=false,eraseArmed=false,eraseMode=false,peaceArmed=false,hangArmed=false;
+let colorIdx=0,posBuffer=[],lastX=null,lastY=null;
+let fpsT=Date.now(),fpsN=0,panelOpen=false,tcStart=Date.now();
+let holdStart={};
 
-function resize() {
-  const w = document.querySelector('.canvas-wrapper');
-  drawCvs.width = ovCvs.width = w.clientWidth;
-  drawCvs.height = ovCvs.height = w.clientHeight;
+const video=document.getElementById('video');
+const dCvs=document.getElementById('drawCanvas');
+const oCvs=document.getElementById('overlayCanvas');
+const dctx=dCvs.getContext('2d');
+const octx=oCvs.getContext('2d');
+
+function resize(){
+  dCvs.width=oCvs.width=window.innerWidth;
+  dCvs.height=oCvs.height=window.innerHeight;
   redrawAll();
 }
-window.addEventListener('resize', resize);
+window.addEventListener('resize',resize);
 
-// ─── UI ──────────────────────────────────────────────────────────────────────
-const cg = document.getElementById('colorGrid');
-COLORS.forEach(c => {
-  const d = document.createElement('div');
-  d.className = 'swatch' + (c === color ? ' sel' : '');
-  d.style.cssText = `background:${c};box-shadow:0 0 4px ${c}`;
-  d.onclick = () => { document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('sel')); d.classList.add('sel'); color=c; };
-  cg.appendChild(d);
-});
+// ── TIMECODE ──────────────────────────────────────────────────────────────────
+setInterval(()=>{
+  const e=Date.now()-tcStart;
+  const h=String(Math.floor(e/3600000)).padStart(2,'0');
+  const m=String(Math.floor((e%3600000)/60000)).padStart(2,'0');
+  const s=String(Math.floor((e%60000)/1000)).padStart(2,'0');
+  const f=String(Math.floor((e%1000)/33)).padStart(2,'0');
+  document.getElementById('tc').textContent=`${h}:${m}:${s}:${f}`;
+},33);
 
-const br = document.getElementById('brushRow');
-BRUSHSZ.forEach(sz => {
-  const b = document.createElement('button');
-  b.className = 'bbtn' + (sz === brush ? ' sel' : '');
-  const dot = document.createElement('div');
-  dot.className = 'bdot';
-  dot.style.cssText = `width:${sz*1.5}px;height:${sz*1.5}px`;
-  b.appendChild(dot);
-  b.onclick = () => { document.querySelectorAll('.bbtn').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); brush=sz; };
-  br.appendChild(b);
-});
-
-document.getElementById('rOpacity').oninput = e => { opacity = e.target.value/100; document.getElementById('vOpacity').textContent = e.target.value+'%'; };
-document.getElementById('rGlow').oninput    = e => { glow = +e.target.value;       document.getElementById('vGlow').textContent = glow+'px'; };
-document.getElementById('rSmooth').oninput  = e => { smooth = +e.target.value;     document.getElementById('vSmooth').textContent = smooth; };
-
-document.getElementById('rPinch').oninput = e => {
-  pinchThreshold = e.target.value / 100;
-  document.getElementById('vPinch').textContent = pinchThreshold.toFixed(2);
-};
-document.getElementById('rConf').oninput = e => {
-  confThreshold = e.target.value / 100;
-  document.getElementById('vConf').textContent = confThreshold.toFixed(2);
-};
-
-// ─── DRAWING ─────────────────────────────────────────────────────────────────
-function seg(x1,y1,x2,y2) {
-  dctx.save();
-  dctx.globalAlpha = opacity; dctx.strokeStyle = color; dctx.lineWidth = brush;
-  dctx.lineCap = 'round'; dctx.lineJoin = 'round';
-  if (glow > 0) { dctx.shadowColor = color; dctx.shadowBlur = glow; }
-  dctx.beginPath(); dctx.moveTo(x1,y1); dctx.lineTo(x2,y2); dctx.stroke();
-  dctx.restore();
+// ── PANEL ─────────────────────────────────────────────────────────────────────
+function togglePanel(){
+  panelOpen=!panelOpen;
+  document.getElementById('fpanel').classList.toggle('open',panelOpen);
 }
 
-function redrawAll() {
-  dctx.clearRect(0,0,drawCvs.width,drawCvs.height);
-  strokes.forEach(s => {
-    if (s.pts.length < 2) return;
-    dctx.save();
-    dctx.globalAlpha = s.op; dctx.strokeStyle = s.col; dctx.lineWidth = s.br;
-    dctx.lineCap = 'round'; dctx.lineJoin = 'round';
-    if (s.gl > 0) { dctx.shadowColor = s.col; dctx.shadowBlur = s.gl; }
-    dctx.beginPath(); dctx.moveTo(s.pts[0].x, s.pts[0].y);
-    s.pts.slice(1).forEach(p => dctx.lineTo(p.x, p.y));
-    dctx.stroke(); dctx.restore();
+// ── GESTURE MODAL ─────────────────────────────────────────────────────────────
+function buildGGrid(){
+  const grid=document.getElementById('gGrid');
+  grid.innerHTML='';
+  GESTURES.forEach(g=>{
+    const c=document.createElement('div');
+    c.className='gm-card'+(g.enabled?'':' off');
+    c.id='gc-'+g.id;
+    c.innerHTML=`
+      <div class="gm-left">
+        <div class="gm-icon">${g.emoji}</div>
+        <div><span class="gm-name">${g.name}</span><span class="gm-desc">${g.desc}</span></div>
+      </div>
+      <label class="tgl">
+        <input type="checkbox" ${g.enabled?'checked':''} onchange="tglG('${g.id}',this.checked)">
+        <div class="tgl-track"></div>
+        <div class="tgl-thumb"></div>
+      </label>`;
+    grid.appendChild(c);
+  });
+}
+function tglG(id,val){
+  const g=GESTURES.find(x=>x.id===id);
+  if(g) g.enabled=val;
+  document.getElementById('gc-'+id)?.classList.toggle('off',!val);
+  buildStrip();
+}
+function openGModal(){ buildGGrid(); document.getElementById('gmodal').classList.add('open'); }
+function gModalBg(e){ if(e.target===document.getElementById('gmodal')) closeGModal(); }
+function closeGModal(){ document.getElementById('gmodal').classList.remove('open'); }
+
+// ── GESTURE STRIP ─────────────────────────────────────────────────────────────
+function buildStrip(){
+  const s=document.getElementById('gstrip');
+  s.innerHTML='';
+  GESTURES.forEach(g=>{
+    const el=document.createElement('div');
+    el.className='gs'+(g.enabled?'':' off');
+    el.id='gs-'+g.id;
+    el.innerHTML=`<span class="gs-e">${g.emoji}</span><span>${g.name}</span>`;
+    s.appendChild(el);
   });
 }
 
-function undoLast() {
-  if (!strokes.length) return;
-  const s = strokes.pop();
-  totalPts -= s.pts.length;
-  document.getElementById('sPoints').textContent = totalPts;
-  document.getElementById('sStrokes').textContent = strokes.length;
-  redrawAll();
+// ── UI INIT ───────────────────────────────────────────────────────────────────
+const cg=document.getElementById('colorGrid');
+COLORS.forEach((c,i)=>{
+  const d=document.createElement('div');
+  d.className='sw'+(i===0?' sel':'');
+  d.style.background=c;
+  d.onclick=()=>{
+    document.querySelectorAll('.sw').forEach(s=>s.classList.remove('sel'));
+    d.classList.add('sel'); color=c; colorIdx=i;
+    document.getElementById('curSwatch').style.background=c;
+  };
+  cg.appendChild(d);
+});
+document.getElementById('curSwatch').style.background=color;
+
+const brow=document.getElementById('brushRow');
+BRUSHSZ.forEach(sz=>{
+  const b=document.createElement('button');
+  b.className='bb'+(sz===brush?' sel':'');
+  const dot=document.createElement('div');
+  dot.className='bdot';
+  dot.style.cssText=`width:${sz*1.3}px;height:${sz*1.3}px`;
+  b.appendChild(dot);
+  b.onclick=()=>setBrush(sz);
+  brow.appendChild(b);
+});
+
+function setBrush(sz){
+  brush=sz;
+  document.querySelectorAll('.bb').forEach((x,i)=>x.classList.toggle('sel',BRUSHSZ[i]===sz));
+  ['bp1','bp2','bp3'].forEach((id,i)=>document.getElementById(id).classList.toggle('act',BRUSHSZ[i]===sz));
 }
 
-function clearAll() {
-  strokes = []; curStroke = []; totalPts = 0; lastX = lastY = null; posBuffer = [];
-  document.getElementById('sPoints').textContent = 0;
-  document.getElementById('sStrokes').textContent = 0;
-  dctx.clearRect(0,0,drawCvs.width,drawCvs.height);
+document.getElementById('rOpacity').oninput=e=>{opacity=e.target.value/100;document.getElementById('vOpacity').textContent=e.target.value+'%';};
+document.getElementById('rGlow').oninput   =e=>{glow=+e.target.value;document.getElementById('vGlow').textContent=glow+'px';};
+document.getElementById('rSmooth').oninput =e=>{smooth=+e.target.value;document.getElementById('vSmooth').textContent=smooth;};
+document.getElementById('rPinch').oninput  =e=>{pinchThreshold=e.target.value/100;document.getElementById('vPinch').textContent=pinchThreshold.toFixed(2);};
+document.getElementById('rConf').oninput   =e=>{confThreshold=e.target.value/100;document.getElementById('vConf').textContent=confThreshold.toFixed(2);};
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+let toastT=null;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1300);
 }
 
-function saveImg() {
-  const tmp = document.createElement('canvas');
-  tmp.width = drawCvs.width; tmp.height = drawCvs.height;
-  const t = tmp.getContext('2d');
-  t.fillStyle = '#020408'; t.fillRect(0,0,tmp.width,tmp.height);
-  t.drawImage(drawCvs,0,0);
-  const a = document.createElement('a');
-  a.download = `airdraw-${Date.now()}.png`; a.href = tmp.toDataURL(); a.click();
+// ── DRAWING ───────────────────────────────────────────────────────────────────
+function seg(x1,y1,x2,y2){
+  dctx.save();
+  dctx.globalAlpha=opacity;dctx.strokeStyle=color;dctx.lineWidth=brush;
+  dctx.lineCap='round';dctx.lineJoin='round';
+  if(glow>0){dctx.shadowColor=color;dctx.shadowBlur=glow;}
+  dctx.beginPath();dctx.moveTo(x1,y1);dctx.lineTo(x2,y2);dctx.stroke();
+  dctx.restore();
+}
+function redrawAll(){
+  dctx.clearRect(0,0,dCvs.width,dCvs.height);
+  strokes.forEach(s=>{
+    if(s.pts.length<2)return;
+    dctx.save();
+    dctx.globalAlpha=s.op;dctx.strokeStyle=s.col;dctx.lineWidth=s.br;
+    dctx.lineCap='round';dctx.lineJoin='round';
+    if(s.gl>0){dctx.shadowColor=s.col;dctx.shadowBlur=s.gl;}
+    dctx.beginPath();dctx.moveTo(s.pts[0].x,s.pts[0].y);
+    s.pts.slice(1).forEach(p=>dctx.lineTo(p.x,p.y));
+    dctx.stroke();dctx.restore();
+  });
+}
+function undoLast(){
+  if(!strokes.length)return;
+  const s=strokes.pop();totalPts-=s.pts.length;
+  document.getElementById('sPoints').textContent=totalPts;
+  document.getElementById('sStrokes').textContent=strokes.length;
+  redrawAll();toast('UNDO');
+}
+function clearAll(){
+  strokes=[];curStroke=[];totalPts=0;lastX=lastY=null;posBuffer=[];
+  document.getElementById('sPoints').textContent=0;
+  document.getElementById('sStrokes').textContent=0;
+  dctx.clearRect(0,0,dCvs.width,dCvs.height);toast('CLEARED');
+}
+function saveImg(){
+  const tmp=document.createElement('canvas');
+  tmp.width=dCvs.width;tmp.height=dCvs.height;
+  const t=tmp.getContext('2d');
+  t.fillStyle='#080600';t.fillRect(0,0,tmp.width,tmp.height);
+  t.drawImage(dCvs,0,0);
+  const a=document.createElement('a');
+  a.download=`airdraw-${Date.now()}.png`;a.href=tmp.toDataURL();a.click();
+  toast('SAVED');
 }
 
-// ─── SMOOTHING ───────────────────────────────────────────────────────────────
-function smoothPos(x, y) {
-  posBuffer.push({x, y});
-  if (posBuffer.length > smooth) posBuffer.shift();
-  return {
-    x: posBuffer.reduce((s,p)=>s+p.x,0) / posBuffer.length,
-    y: posBuffer.reduce((s,p)=>s+p.y,0) / posBuffer.length
+// ── SMOOTHING ─────────────────────────────────────────────────────────────────
+function smoothPos(x,y){
+  posBuffer.push({x,y});
+  if(posBuffer.length>smooth)posBuffer.shift();
+  return{
+    x:posBuffer.reduce((s,p)=>s+p.x,0)/posBuffer.length,
+    y:posBuffer.reduce((s,p)=>s+p.y,0)/posBuffer.length
   };
 }
 
-// ─── OVERLAY ─────────────────────────────────────────────────────────────────
-const CONN = [
-  [0,1],[1,2],[2,3],[3,4],
-  [0,5],[5,6],[6,7],[7,8],
-  [5,9],[9,10],[10,11],[11,12],
-  [9,13],[13,14],[14,15],[15,16],
-  [13,17],[0,17],[17,18],[18,19],[19,20]
-];
+// ── OVERLAY ───────────────────────────────────────────────────────────────────
+const CONN=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[0,17],[17,18],[18,19],[19,20]];
 
-function drawOverlay(lm, isPinch, isOpen) {
-  octx.clearRect(0,0,ovCvs.width,ovCvs.height);
-  if (!lm) return;
-  const W = ovCvs.width, H = ovCvs.height;
-  // landmarks are in [0,1] range; mirror X because video is CSS-mirrored
-  const px = i => (1 - lm[i].x) * W;
-  const py = i => lm[i].y * H;
+function drawOverlay(lm,isPinch,isOpen,isFist){
+  octx.clearRect(0,0,oCvs.width,oCvs.height);
+  if(!lm)return;
+  const W=oCvs.width,H=oCvs.height;
+  const px=i=>(1-lm[i].x)*W;
+  const py=i=>lm[i].y*H;
 
-  // Skeleton
-  octx.strokeStyle = 'rgba(0,245,255,0.22)'; octx.lineWidth = 1.5;
-  CONN.forEach(([a,b]) => {
-    octx.beginPath(); octx.moveTo(px(a),py(a)); octx.lineTo(px(b),py(b)); octx.stroke();
-  });
+  octx.strokeStyle=isFist?'rgba(255,68,68,0.28)':isPinch?'rgba(232,160,0,0.22)':'rgba(232,160,0,0.16)';
+  octx.lineWidth=1;
+  CONN.forEach(([a,b])=>{octx.beginPath();octx.moveTo(px(a),py(a));octx.lineTo(px(b),py(b));octx.stroke();});
 
-  // Joints
-  lm.forEach((_,i) => {
-    const r = i === 8 ? 8 : (i===4?6:3);
-    octx.beginPath(); octx.arc(px(i),py(i),r,0,Math.PI*2);
-    octx.fillStyle = i===8 ? (isPinch?'#ff00aa':isOpen?'#ffd700':'#00f5ff')
-                   : i===4 ? 'rgba(255,0,170,0.7)'
-                   : 'rgba(0,245,255,0.4)';
+  lm.forEach((_,i)=>{
+    const r=i===8?7:i===4?5:2.5;
+    octx.beginPath();octx.arc(px(i),py(i),r,0,Math.PI*2);
+    octx.fillStyle=i===8?(isPinch?'#ff4040':isOpen?'#4dff91':isFist?'#ff6622':'#e8a000'):i===4?'rgba(232,160,0,0.55)':'rgba(232,160,0,0.28)';
     octx.fill();
   });
 
-  // Glow halo at index tip
-  const tx = px(8), ty = py(8);
-  const grad = octx.createRadialGradient(tx,ty,0,tx,ty,40);
-  const hc = isPinch ? 'rgba(255,0,170,' : 'rgba(0,245,255,';
-  grad.addColorStop(0, hc+'0.5)'); grad.addColorStop(1, hc+'0)');
-  octx.fillStyle = grad;
-  octx.beginPath(); octx.arc(tx,ty,40,0,Math.PI*2); octx.fill();
+  const tx=px(8),ty=py(8);
+  const hc=isPinch?'255,64,64':isFist?'255,102,34':'232,160,0';
+  const gr=octx.createRadialGradient(tx,ty,0,tx,ty,34);
+  gr.addColorStop(0,`rgba(${hc},0.42)`);gr.addColorStop(1,`rgba(${hc},0)`);
+  octx.fillStyle=gr;octx.beginPath();octx.arc(tx,ty,34,0,Math.PI*2);octx.fill();
 
-  // Pinch line
-  if (isPinch) {
-    octx.strokeStyle = 'rgba(255,0,170,0.6)'; octx.lineWidth = 2;
-    octx.setLineDash([4,3]);
-    octx.beginPath(); octx.moveTo(px(4),py(4)); octx.lineTo(px(8),py(8)); octx.stroke();
+  if(isPinch){
+    octx.strokeStyle='rgba(232,160,0,0.45)';octx.lineWidth=1.5;
+    octx.setLineDash([3,3]);
+    octx.beginPath();octx.moveTo(px(4),py(4));octx.lineTo(px(8),py(8));octx.stroke();
     octx.setLineDash([]);
   }
 }
 
-// ─── GESTURE ─────────────────────────────────────────────────────────────────
-function dist2D(a, b) {
-  const dx = a.x - b.x, dy = a.y - b.y;
-  return Math.sqrt(dx*dx + dy*dy);
+// ── GESTURE ───────────────────────────────────────────────────────────────────
+function dist2D(a,b){const dx=a.x-b.x,dy=a.y-b.y;return Math.sqrt(dx*dx+dy*dy);}
+
+function detectGesture(lm){
+  const pinchDist=dist2D(lm[4],lm[8]);
+  const pinch=pinchDist<pinchThreshold;
+  const tips=[8,12,16,20],mcps=[5,9,13,17];
+  const up=tips.map((t,i)=>lm[t].y<lm[mcps[i]].y);
+  const [idx,mid,rng,pky]=up;
+  const fingersUp=up.filter(Boolean).length;
+  return{
+    pinch, pinchDist, fingersUp,
+    openPalm: fingersUp>=4,
+    peace: idx&&mid&&!rng&&!pky,
+    fist:  !idx&&!mid&&!rng&&!pky,
+    hang:  !idx&&!mid&&!rng&&pky
+  };
 }
 
-function detectGesture(lm) {
-  const pinchDist = dist2D(lm[4], lm[8]);
-  const pinch = pinchDist < pinchThreshold;
-
-  // Fingers up: tip.y < pip.y (in normalized 0-1 space, y increases downward)
-  const tips = [8, 12, 16, 20];
-  const pips = [6, 10, 14, 18];
-  const up = tips.map((t, i) => lm[t].y < lm[pips[i]].y);
-  const [idx, mid, rng, pky] = up;
-  const fingersUp = up.filter(Boolean).length;
-
-  const openPalm = fingersUp >= 4;
-  const peace    = idx && mid && !rng && !pky;
-  const fist     = !idx && !mid && !rng && !pky;
-  const hang     = !idx && !mid && !rng && pky;  // only pinky up = hang loose
-
-  return { pinch, openPalm, peace, fist, hang, pinchDist, fingersUp };
+// hold timer: gesture must be held N ms to fire
+function held(id,active,ms=280){
+  if(!active){holdStart[id]=null;return false;}
+  if(!holdStart[id]){holdStart[id]=Date.now();return false;}
+  return(Date.now()-holdStart[id])>=ms;
 }
 
-// ─── MEDIAPIPE HANDS ─────────────────────────────────────────────────────────
-let handsModel = null;
-let camUtil    = null;
+// ── MEDIAPIPE ─────────────────────────────────────────────────────────────────
+let handsModel=null,camUtil=null;
 
-function onResults(results) {
-  // FPS
+function setMode(m){
+  document.getElementById('modeTag').textContent=m;
+  document.getElementById('sModeTag').textContent=m;
+}
+
+function onResults(results){
   fpsN++;
-  if (Date.now() - fpsT > 1000) {
-    document.getElementById('sFps').textContent = fpsN;
-    fpsN = 0; fpsT = Date.now();
-  }
+  if(Date.now()-fpsT>1000){document.getElementById('sFps').textContent=fpsN;fpsN=0;fpsT=Date.now();}
+  octx.clearRect(0,0,oCvs.width,oCvs.height);
 
-  octx.clearRect(0,0,ovCvs.width,ovCvs.height);
-
-  if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
-    // No hand detected
-    document.getElementById('dHand').className  = 'dot';
-    document.getElementById('dDraw').className  = 'dot';
-    document.getElementById('dbDetected').textContent = 'NO';
-    document.getElementById('dbDetected').style.color = '#ff4466';
-    document.getElementById('dbConf').textContent     = '--';
-    document.getElementById('dbConfBar').style.width  = '0%';
-    document.getElementById('dbGesture').textContent  = '--';
-    document.getElementById('dbPinch').textContent    = '--';
-    document.getElementById('dbFingers').textContent  = '--';
-    drawOverlay(null, false, false);
-
-    if (drawing && curStroke.length > 1) {
-      strokes.push({ pts: [...curStroke], col: color, br: brush, op: opacity, gl: glow });
-      document.getElementById('sStrokes').textContent = strokes.length;
+  if(!results.multiHandLandmarks||results.multiHandLandmarks.length===0){
+    document.getElementById('dHand').className='sd';
+    document.getElementById('dDraw').className='sd';
+    document.getElementById('dbDetected').textContent='NO';
+    document.getElementById('dbDetected').style.color='rgba(255,68,68,0.8)';
+    ['dbConf','dbGesture','dbPinch','dbFingers'].forEach(id=>document.getElementById(id).textContent='--');
+    document.getElementById('dbConfBar').style.width='0%';
+    setMode('--');drawOverlay(null,false,false,false);
+    if(drawing&&curStroke.length>1){
+      strokes.push({pts:[...curStroke],col:color,br:brush,op:opacity,gl:glow});
+      document.getElementById('sStrokes').textContent=strokes.length;
     }
-    curStroke = []; drawing = false; lastX = lastY = null; posBuffer = [];
-    eraseArmed = false; peaceArmed = false; hangArmed = false; eraseMode = false;
+    curStroke=[];drawing=false;lastX=lastY=null;posBuffer=[];
+    eraseArmed=false;peaceArmed=false;hangArmed=false;eraseMode=false;holdStart={};
     return;
   }
 
-  // Hand detected!
-  document.getElementById('dHand').className  = 'dot on';
-  document.getElementById('dbDetected').textContent = 'YES ✓';
-  document.getElementById('dbDetected').style.color = '#00ff88';
+  document.getElementById('dHand').className='sd on';
+  document.getElementById('dbDetected').textContent='YES';
+  document.getElementById('dbDetected').style.color='rgba(77,255,145,0.9)';
 
-  const lm   = results.multiHandLandmarks[0];
-  const conf = results.multiHandedness?.[0]?.score ?? 1;
-  document.getElementById('dbConf').textContent    = (conf * 100).toFixed(0) + '%';
-  document.getElementById('dbConfBar').style.width = (conf * 100) + '%';
+  const lm=results.multiHandLandmarks[0];
+  const conf=results.multiHandedness?.[0]?.score??1;
+  document.getElementById('dbConf').textContent=(conf*100).toFixed(0)+'%';
+  document.getElementById('dbConfBar').style.width=(conf*100)+'%';
+  if(conf<confThreshold){drawOverlay(lm,false,false,false);return;}
 
-  // Filter by confidence
-  if (conf < confThreshold) {
-    drawOverlay(lm, false, false);
-    return;
-  }
+  const{pinch,openPalm,peace,fist,hang,pinchDist,fingersUp}=detectGesture(lm);
+  document.getElementById('dbGesture').textContent=fist?'FIST':hang?'HANG':peace?'PEACE':openPalm?'PALM':pinch?'PINCH':'POINT';
+  document.getElementById('dbPinch').textContent=pinchDist.toFixed(3);
+  document.getElementById('dbFingers').textContent=fingersUp+'/4';
+  drawOverlay(lm,pinch,openPalm,fist);
 
-  const { pinch, openPalm, peace, fist, hang, pinchDist, fingersUp } = detectGesture(lm);
+  // clear active strip
+  GESTURES.forEach(g=>document.getElementById('gs-'+g.id)?.classList.remove('act'));
 
-  const gestureLabel = fist ? 'FIST/ERASE' : hang ? 'HANG/CLEAR' : peace ? 'PEACE/COLOR' : openPalm ? 'OPEN PALM' : pinch ? 'PINCH' : 'POINTING';
-  document.getElementById('dbGesture').textContent = gestureLabel;
-  document.getElementById('dbPinch').textContent   = pinchDist.toFixed(3);
-  document.getElementById('dbFingers').textContent = fingersUp + '/4';
-
-  drawOverlay(lm, pinch, openPalm);
-
-  // ── FIST → erase mode (continuous) ──
-  if (fist) {
-    if (!eraseMode) {
-      eraseMode = true;
-      drawing = false; lastX = lastY = null; curStroke = []; posBuffer = [];
-      document.getElementById('dDraw').className = 'dot';
+  // ── FIST → erase ──
+  if(fist&&gOn('fist')){
+    if(held('fist',true,260)){
+      if(!eraseMode){eraseMode=true;drawing=false;lastX=lastY=null;curStroke=[];posBuffer=[];document.getElementById('dDraw').className='sd';}
+      document.getElementById('gs-fist')?.classList.add('act');
+      setMode('ERASE');
+      const W=dCvs.width,H=dCvs.height;
+      const ex=(1-lm[0].x)*W,ey=lm[0].y*H;
+      strokes=strokes.filter(s=>!s.pts.some(p=>Math.hypot(p.x-ex,p.y-ey)<42));
+      redrawAll();eraseArmed=false;peaceArmed=false;hangArmed=false;return;
     }
-    // Erase strokes near palm center (landmark 0)
-    const W = drawCvs.width, H = drawCvs.height;
-    const ex = (1 - lm[0].x) * W, ey = lm[0].y * H;
-    strokes = strokes.filter(s => !s.pts.some(p => Math.hypot(p.x-ex, p.y-ey) < 35));
-    redrawAll();
-    eraseArmed = false; peaceArmed = false; hangArmed = false;
-    return;
-  }
-  if (eraseMode) { eraseMode = false; }
+  } else held('fist',false);
+  if(eraseMode&&!fist)eraseMode=false;
 
-  // ── HANG LOOSE → clear all ──
-  if (hang && !hangArmed) {
-    hangArmed = true;
-    clearAll();
-    drawing = false; lastX = lastY = null; curStroke = []; posBuffer = [];
-    document.getElementById('dDraw').className = 'dot';
-    eraseArmed = false; peaceArmed = false;
-    return;
-  }
-  if (!hang) hangArmed = false;
+  // ── HANG → clear (hold 360ms) ──
+  if(hang&&gOn('hang')){
+    if(held('hang',true,360)&&!hangArmed){
+      hangArmed=true;
+      document.getElementById('gs-hang')?.classList.add('act');
+      clearAll();drawing=false;lastX=lastY=null;curStroke=[];posBuffer=[];
+      document.getElementById('dDraw').className='sd';
+      eraseArmed=false;peaceArmed=false;return;
+    }
+  } else {held('hang',false);hangArmed=false;}
 
   // ── PEACE → cycle color ──
-  if (peace && !peaceArmed) {
-    peaceArmed = true;
-    colorIdx = (colorIdx + 1) % COLORS.length;
-    color = COLORS[colorIdx];
-    document.querySelectorAll('.swatch').forEach((s,i) => s.classList.toggle('sel', i === colorIdx));
-    drawing = false; lastX = lastY = null; curStroke = []; posBuffer = [];
-    document.getElementById('dDraw').className = 'dot';
-    eraseArmed = false; hangArmed = false;
-    return;
+  if(peace&&gOn('peace')&&!peaceArmed){
+    peaceArmed=true;
+    colorIdx=(colorIdx+1)%COLORS.length;color=COLORS[colorIdx];
+    document.querySelectorAll('.sw').forEach((s,i)=>s.classList.toggle('sel',i===colorIdx));
+    document.getElementById('curSwatch').style.background=color;
+    document.getElementById('gs-peace')?.classList.add('act');
+    toast('COLOR '+color.toUpperCase());
+    drawing=false;lastX=lastY=null;curStroke=[];posBuffer=[];
+    document.getElementById('dDraw').className='sd';
+    eraseArmed=false;hangArmed=false;return;
   }
-  if (!peace) peaceArmed = false;
+  if(!peace)peaceArmed=false;
 
-  // ── OPEN PALM → undo last stroke ──
-  if (openPalm && !eraseArmed) {
-    eraseArmed = true;
-    undoLast();
-    drawing = false; lastX = lastY = null; curStroke = []; posBuffer = [];
-    document.getElementById('dDraw').className = 'dot';
-    return;
+  // ── PALM → undo ──
+  if(openPalm&&gOn('palm')&&!eraseArmed){
+    eraseArmed=true;
+    document.getElementById('gs-palm')?.classList.add('act');
+    undoLast();drawing=false;lastX=lastY=null;curStroke=[];posBuffer=[];
+    document.getElementById('dDraw').className='sd';return;
   }
-  if (!openPalm) eraseArmed = false;
+  if(!openPalm)eraseArmed=false;
 
-  // ── PINCH → lift pen ──
-  if (pinch) {
-    if (drawing && curStroke.length > 1) {
-      strokes.push({ pts: [...curStroke], col: color, br: brush, op: opacity, gl: glow });
-      document.getElementById('sStrokes').textContent = strokes.length;
+  // ── PINCH → lift pen (tighter while drawing, requires hold mid-stroke) ──
+  const pThresh=drawing?pinchThreshold*0.78:pinchThreshold;
+  if(pinchDist<pThresh&&gOn('pinch')){
+    if(held('pinch',true,drawing?130:0)){
+      document.getElementById('gs-pinch')?.classList.add('act');
+      if(drawing&&curStroke.length>1){
+        strokes.push({pts:[...curStroke],col:color,br:brush,op:opacity,gl:glow});
+        document.getElementById('sStrokes').textContent=strokes.length;
+      }
+      curStroke=[];drawing=false;lastX=lastY=null;posBuffer=[];
+      document.getElementById('dDraw').className='sd';setMode('LIFT');return;
     }
-    curStroke = []; drawing = false; lastX = lastY = null; posBuffer = [];
-    document.getElementById('dDraw').className = 'dot';
-    return;
-  }
+  } else held('pinch',false);
 
-  // Draw! Index tip = landmark 8
-  const W = drawCvs.width, H = drawCvs.height;
-  const tip = lm[8];
-  const rawX = (1 - tip.x) * W;  // mirror to match CSS
-  const rawY = tip.y * H;
-  const { x, y } = smoothPos(rawX, rawY);
-
-  if (!drawing) {
-    drawing = true; lastX = x; lastY = y;
-    curStroke = [{ x, y }];
-    document.getElementById('dDraw').className = 'dot draw';
+  // ── DRAW ──
+  if(!gOn('draw'))return;
+  document.getElementById('gs-draw')?.classList.add('act');
+  setMode('DRAW');
+  const W=dCvs.width,H=dCvs.height;
+  const tip=lm[8];
+  const rawX=(1-tip.x)*W,rawY=tip.y*H;
+  const{x,y}=smoothPos(rawX,rawY);
+  if(!drawing){
+    drawing=true;lastX=x;lastY=y;curStroke=[{x,y}];
+    document.getElementById('dDraw').className='sd draw';
   } else {
-    seg(lastX, lastY, x, y);
-    curStroke.push({ x, y });
-    totalPts++;
-    document.getElementById('sPoints').textContent = totalPts;
-    lastX = x; lastY = y;
+    seg(lastX,lastY,x,y);curStroke.push({x,y});totalPts++;
+    document.getElementById('sPoints').textContent=totalPts;
+    lastX=x;lastY=y;
   }
 }
 
-// ─── START ───────────────────────────────────────────────────────────────────
-function setMsg(t) { document.getElementById('statusMsg').textContent = t; }
-function setProg(p){ document.getElementById('pfill').style.width = p + '%'; }
+// ── START ─────────────────────────────────────────────────────────────────────
+function setMsg(t){document.getElementById('statusMsg').textContent=t;}
+function setProg(p){document.getElementById('pfill').style.width=p+'%';}
 
-async function startApp() {
-  document.getElementById('startBtn').disabled = true;
-
-  setMsg('REQUESTING CAMERA...'); setProg(10);
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
-    });
-    video.srcObject = stream;
-    await new Promise(r => { video.onloadedmetadata = r; });
+async function startApp(){
+  document.getElementById('startBtn').disabled=true;
+  setMsg('REQUESTING CAMERA...');setProg(10);
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720},facingMode:'user'}});
+    video.srcObject=stream;
+    await new Promise(r=>{video.onloadedmetadata=r;});
     await video.play();
-    document.getElementById('dCam').className = 'dot on';
-    setMsg('CAMERA READY ✓'); setProg(30);
-  } catch(e) {
-    setMsg('⚠ CAMERA DENIED — allow camera and refresh');
-    document.getElementById('startBtn').disabled = false;
-    return;
+    document.getElementById('dCam').className='sd on';
+    setMsg('CAMERA READY');setProg(30);
+  }catch(e){
+    setMsg('CAMERA DENIED — ALLOW AND REFRESH');
+    document.getElementById('startBtn').disabled=false;return;
   }
 
-  setMsg('LOADING MEDIAPIPE MODEL...'); setProg(45);
-  document.getElementById('dbModel').textContent = 'loading...';
-
-  // Wait for dynamic scripts to finish loading
-  try {
-    await window._mpReady;
-  } catch(e) {
-    setMsg('⚠ CDN FAILED: ' + e.message + ' — Try a different network');
-    document.getElementById('startBtn').disabled = false;
-    return;
+  setMsg('LOADING MODEL...');setProg(45);
+  document.getElementById('dbModel').textContent='loading...';
+  try{await window._mpReady;}catch(e){
+    setMsg('CDN FAILED — TRY DIFFERENT NETWORK');
+    document.getElementById('startBtn').disabled=false;return;
   }
 
-  try {
-    const locateCDNs = [
-      file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`,
-      file => `https://unpkg.com/@mediapipe/hands@0.4.1646424915/${file}`
+  try{
+    const cdns=[
+      f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${f}`,
+      f=>`https://unpkg.com/@mediapipe/hands@0.4.1646424915/${f}`
     ];
-
-    let loaded = false;
-    for (const locateFn of locateCDNs) {
-      try {
-        handsModel = new Hands({ locateFile: locateFn });
-        handsModel.setOptions({
-          maxNumHands:            1,
-          modelComplexity:        1,
-          minDetectionConfidence: 0.5,
-          minTrackingConfidence:  0.5
-        });
+    let ok=false;
+    for(const fn of cdns){
+      try{
+        handsModel=new Hands({locateFile:fn});
+        handsModel.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:0.5,minTrackingConfidence:0.5});
         handsModel.onResults(onResults);
-        camUtil = new Camera(video, {
-          onFrame: async () => { await handsModel.send({ image: video }); },
-          width: 1280, height: 720
-        });
-        await camUtil.start();
-        loaded = true;
-        console.log('✓ Model loaded with', locateFn('test'));
-        break;
-      } catch(e) {
-        console.warn('Model failed with CDN, trying next...', e.message);
-        if (handsModel) { try { handsModel.close(); } catch(_){} handsModel = null; }
-        if (camUtil)    { try { camUtil.stop();      } catch(_){} camUtil = null;    }
+        camUtil=new Camera(video,{onFrame:async()=>{await handsModel.send({image:video});},width:1280,height:720});
+        await camUtil.start();ok=true;break;
+      }catch(e){
+        if(handsModel){try{handsModel.close();}catch(_){}handsModel=null;}
+        if(camUtil){try{camUtil.stop();}catch(_){}camUtil=null;}
       }
     }
-
-    if (!loaded) throw new Error('All model CDNs failed');
-
-    document.getElementById('dModel').className = 'dot on';
-    document.getElementById('dbModel').textContent = 'MEDIAPIPE FULL ✓';
-    setMsg('MODEL READY ✓'); setProg(95);
-  } catch(e) {
-    document.getElementById('dModel').className = 'dot warn';
-    document.getElementById('dbModel').textContent = 'FAILED';
-    setMsg('⚠ MODEL FAILED: ' + e.message + ' — Disable Brave Shields and retry');
-    document.getElementById('startBtn').disabled = false;
-    return;
+    if(!ok)throw new Error('All CDNs failed');
+    document.getElementById('dModel').className='sd on';
+    document.getElementById('dbModel').textContent='MEDIAPIPE ✓';
+    setMsg('SYSTEM READY');setProg(100);
+  }catch(e){
+    document.getElementById('dModel').className='sd warn';
+    document.getElementById('dbModel').textContent='FAILED';
+    setMsg('MODEL FAILED: '+e.message);
+    document.getElementById('startBtn').disabled=false;return;
   }
 
-  resize();
-  await new Promise(r => setTimeout(r, 600));
-  setProg(100);
+  resize();tcStart=Date.now();buildStrip();
+  await new Promise(r=>setTimeout(r,600));
 
-  const ov = document.getElementById('overlay');
-  ov.style.transition = 'opacity 0.5s'; ov.style.opacity = '0';
-  setTimeout(() => ov.style.display = 'none', 500);
+  // Fade out main overlay, show intro screen
+  const ov=document.getElementById('overlay');
+  ov.style.transition='opacity 0.5s';ov.style.opacity='0';
+  setTimeout(()=>{
+    ov.style.display='none';
+    document.getElementById('introScreen').classList.add('show');
+  },500);
+}
+
+function dismissIntro(){
+  const is=document.getElementById('introScreen');
+  is.style.transition='opacity 0.4s';is.style.opacity='0';
+  setTimeout(()=>{
+    is.style.display='none';
+    document.getElementById('toolstrip').classList.add('vis');
+    document.getElementById('ptoggle').classList.add('vis');
+    document.getElementById('gBtn').classList.add('vis');
+  },400);
 }
 </script>
 
