@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<!-- saved from url=(0054)file:///C:/Users/G%20M%20HRISHI/Downloads/index_1.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIR DRAW v1.1</title>
+<link href="./index_files/css2" rel="stylesheet">
+<script src="./index_files/hands.js.download" crossorigin="anonymous"></script>
+<script src="./index_files/camera_utils.js.download" crossorigin="anonymous"></script>
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --cyan: #00f5ff;
+  --magenta: #ff00aa;
+  --green: #00ff88;
+  --yellow: #ffd700;
+  --red: #ff4466;
+  --bg: #020408;
+  --border: rgba(0,245,255,0.15);
+  --panel: rgba(0,245,255,0.04);
+}
+
+body {
+  background: var(--bg); color: var(--cyan);
+  font-family: 'Share Tech Mono', monospace;
+  height: 100vh; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,245,255,0.01) 2px, rgba(0,245,255,0.01) 4px);
+  pointer-events: none; z-index: 1000;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.7) 100%);
+  pointer-events: none; z-index: 999;
+}
+
+/* HEADER */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 18px; border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,0.85); backdrop-filter: blur(12px);
+  flex-shrink: 0; z-index: 100;
+}
+.logo {
+  font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.1rem; letter-spacing: 5px;
+  background: linear-gradient(90deg, var(--cyan), var(--magenta));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  filter: drop-shadow(0 0 8px rgba(0,245,255,0.5));
+}
+.version {
+  font-size: 0.5rem; letter-spacing: 3px; color: rgba(0,245,255,0.35);
+  font-family: 'Orbitron', sans-serif; margin-left: 8px; vertical-align: middle;
+}
+.hstatus { display: flex; align-items: center; gap: 14px; font-size: 0.58rem; letter-spacing: 2px; color: rgba(0,245,255,0.4); }
+.dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #1a1a2e;
+  display: inline-block; margin-right: 4px; transition: all 0.3s;
+}
+.dot.on   { background: var(--green);   box-shadow: 0 0 8px var(--green);   animation: blink 1.8s infinite; }
+.dot.draw { background: var(--magenta); box-shadow: 0 0 8px var(--magenta); animation: blink 0.5s infinite; }
+.dot.warn { background: var(--yellow);  box-shadow: 0 0 8px var(--yellow); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* LAYOUT */
+.main { display: flex; flex: 1; overflow: hidden; }
+
+.canvas-wrapper { position: relative; flex: 1; overflow: hidden; }
+
+.grid-bg {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,245,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,245,255,0.03) 1px, transparent 1px);
+  background-size: 50px 50px; z-index: 0;
+}
+
+#video {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; opacity: 0.12; transform: scaleX(-1); z-index: 1;
+}
+#drawCanvas   { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; }
+#overlayCanvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
+
+/* GESTURE TOAST */
+#gestureToast {
+  position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,0.85); border: 1px solid var(--border);
+  border-radius: 30px; padding: 10px 28px;
+  font-family: 'Orbitron', sans-serif; font-size: 0.75rem; letter-spacing: 4px;
+  color: var(--cyan); z-index: 10; pointer-events: none;
+  opacity: 0; transition: opacity 0.2s;
+  backdrop-filter: blur(10px);
+  text-align: center;
+}
+#gestureToast.show { opacity: 1; }
+
+/* GESTURE RING — shows around finger tip */
+#gestureRing {
+  position: absolute; border-radius: 50%;
+  border: 2px solid var(--cyan);
+  pointer-events: none; z-index: 9;
+  width: 60px; height: 60px;
+  margin-left: -30px; margin-top: -30px;
+  opacity: 0; transition: opacity 0.15s, border-color 0.15s, transform 0.1s;
+  transform: scale(1);
+}
+#gestureRing.visible { opacity: 1; }
+#gestureRing.pulse   { animation: ringPulse 0.4s ease-out; }
+@keyframes ringPulse {
+  0%   { transform: scale(1);   opacity: 1; }
+  50%  { transform: scale(1.6); opacity: 0.6; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+/* SIDEBAR */
+.sidebar {
+  width: 190px; flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(12px);
+  display: flex; flex-direction: column; overflow-y: auto; z-index: 100;
+}
+.panel { border-bottom: 1px solid var(--border); padding: 11px; }
+.ptitle {
+  font-family: 'Orbitron', sans-serif; font-size: 0.5rem;
+  letter-spacing: 3px; color: rgba(0,245,255,0.35);
+  text-transform: uppercase; margin-bottom: 9px;
+}
+
+/* Colors */
+.colors { display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; }
+.swatch {
+  aspect-ratio: 1; border-radius: 4px; cursor: pointer;
+  border: 2px solid transparent; transition: all 0.18s;
+}
+.swatch:hover { filter: brightness(1.35); }
+.swatch.sel { border-color: #fff; transform: scale(1.1); }
+
+/* Brushes */
+.brushes { display: flex; align-items: center; justify-content: space-around; }
+.bbtn {
+  width: 38px; height: 38px; border-radius: 50%;
+  border: 1px solid var(--border); background: transparent;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.18s;
+}
+.bbtn:hover { border-color: var(--cyan); }
+.bbtn.sel { border-color: var(--cyan); background: rgba(0,245,255,0.1); box-shadow: 0 0 10px rgba(0,245,255,0.2); }
+.bdot { background: white; border-radius: 50%; }
+
+/* Sliders */
+.srow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+.slabel { font-size: 0.54rem; letter-spacing: 1px; color: rgba(0,245,255,0.4); }
+.sval   { font-size: 0.58rem; color: var(--cyan); }
+input[type=range] {
+  width: 100%; height: 3px; -webkit-appearance: none;
+  background: var(--border); border-radius: 2px; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 12px; height: 12px;
+  border-radius: 50%; background: var(--cyan); cursor: pointer; box-shadow: 0 0 5px var(--cyan);
+}
+
+/* Buttons */
+.btn {
+  width: 100%; padding: 7px; background: transparent;
+  border: 1px solid var(--border); color: var(--cyan);
+  font-family: 'Share Tech Mono', monospace; font-size: 0.58rem;
+  letter-spacing: 2px; text-transform: uppercase;
+  cursor: pointer; transition: all 0.18s; border-radius: 3px; margin-bottom: 5px;
+}
+.btn:hover { background: rgba(0,245,255,0.07); border-color: var(--cyan); }
+.btn:last-child { margin-bottom: 0; }
+.btn.red { border-color: rgba(255,0,80,0.3); color: var(--red); }
+.btn.red:hover { background: rgba(255,0,80,0.08); border-color: var(--red); }
+
+/* Stats */
+.stat { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.sk { font-size: 0.5rem; color: rgba(0,245,255,0.32); letter-spacing: 1px; }
+.sv { font-size: 0.56rem; color: var(--cyan); }
+
+/* Gesture legend */
+.gleg { display: flex; flex-direction: column; gap: 5px; }
+.gleg-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.54rem; letter-spacing: 1px; color: rgba(0,245,255,0.5);
+  padding: 5px 7px; border-radius: 4px; border: 1px solid transparent;
+  transition: all 0.2s;
+}
+.gleg-row.active {
+  border-color: var(--cyan); background: rgba(0,245,255,0.07);
+  color: var(--cyan);
+  box-shadow: 0 0 10px rgba(0,245,255,0.15);
+}
+.gleg-icon { font-size: 1rem; width: 22px; text-align: center; }
+.gleg-label { flex: 1; }
+.gleg-color { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* Debug */
+#debugPanel {
+  background: rgba(0,0,0,0.8); border: 1px solid rgba(255,200,0,0.25);
+  border-radius: 5px; padding: 9px; font-size: 0.52rem; line-height: 1.75;
+  color: rgba(255,220,0,0.7);
+}
+#debugPanel .dtitle { color: var(--yellow); font-size: 0.5rem; letter-spacing: 2px; margin-bottom: 5px; }
+#debugPanel .drow   { display: flex; justify-content: space-between; }
+#debugPanel .dval   { color: #fff; }
+.dbar  { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; margin: 2px 0 4px; overflow: hidden; }
+.dfill { height: 100%; background: var(--yellow); transition: width 0.15s; }
+
+/* GESTURE BAR */
+.gbar {
+  position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 14px;
+  background: rgba(0,0,0,0.78); border: 1px solid var(--border);
+  border-radius: 30px; padding: 8px 20px;
+  backdrop-filter: blur(10px); z-index: 200; pointer-events: none;
+}
+.gi { display: flex; align-items: center; gap: 5px; font-size: 0.54rem; letter-spacing: 1px; color: rgba(0,245,255,0.5); }
+.gi span { font-size: 0.9rem; }
+
+/* START OVERLAY */
+#overlay {
+  position: fixed; inset: 0; background: rgba(2,4,8,0.97);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 500; gap: 18px;
+}
+.otitle {
+  font-family: 'Orbitron', sans-serif; font-size: 2.5rem; font-weight: 900;
+  letter-spacing: 10px; text-align: center;
+  background: linear-gradient(135deg, var(--cyan), var(--magenta));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  filter: drop-shadow(0 0 28px rgba(0,245,255,0.4));
+  animation: flicker 5s infinite;
+}
+.over-version {
+  font-family: 'Orbitron', sans-serif; font-size: 0.6rem;
+  letter-spacing: 5px; color: rgba(0,245,255,0.3); margin-top: -10px;
+}
+@keyframes flicker { 0%,88%,100%{opacity:1} 90%{opacity:.7} 93%{opacity:1} 96%{opacity:.55} }
+
+.brave-tip {
+  max-width: 460px; text-align: center;
+  border: 1px solid rgba(255,165,0,0.35); border-radius: 8px; padding: 11px;
+  font-size: 0.56rem; letter-spacing: 1px; line-height: 1.8;
+  color: rgba(255,165,0,0.75); background: rgba(255,165,0,0.05);
+}
+.brave-tip b { color: #ffaa00; }
+
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 540px; }
+.card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; text-align: center; background: var(--panel); }
+.card-icon { font-size: 1.5rem; margin-bottom: 6px; }
+.card-text { font-size: 0.52rem; letter-spacing: 1px; color: rgba(0,245,255,0.5); line-height: 1.6; }
+
+#statusMsg { font-size: 0.6rem; letter-spacing: 3px; color: rgba(0,245,255,0.45); min-height: 1.2em; text-align: center; }
+.pbar { width: 260px; height: 2px; background: var(--border); border-radius: 2px; overflow: hidden; }
+#pfill { height: 100%; background: linear-gradient(90deg, var(--cyan), var(--magenta)); width: 0%; transition: width 0.4s; box-shadow: 0 0 8px var(--cyan); }
+
+.obtn {
+  padding: 11px 40px; background: transparent;
+  border: 1px solid var(--cyan); color: var(--cyan);
+  font-family: 'Orbitron', sans-serif; font-size: 0.75rem; letter-spacing: 5px;
+  text-transform: uppercase; cursor: pointer; transition: all 0.3s; border-radius: 4px;
+}
+.obtn:hover { background: rgba(0,245,255,0.07); box-shadow: 0 0 25px rgba(0,245,255,0.25); }
+.obtn:disabled { opacity: 0.4; cursor: not-allowed; }
+</style>
+</head>
+<body>
+
+<!-- OVERLAY -->
+<div id="overlay">
+  <div class="otitle">AIR DRAW</div>
+  <div class="over-version">VERSION 1.1</div>
+
+  <div class="brave-tip">
+    🦁 <b>BRAVE USERS:</b> Click the <b>🛡 Shields icon</b> in the address bar → turn <b>OFF</b> for this page<br>
+    Also: Windows Settings → Power → set to <b>Performance</b> for best tracking with RTX GPU
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="card-icon">☝️</div><div class="card-text">INDEX FINGER<br>DRAW</div></div>
+    <div class="card"><div class="card-icon">🤏</div><div class="card-text">PINCH<br>LIFT PEN</div></div>
+    <div class="card"><div class="card-icon">✋</div><div class="card-text">OPEN PALM<br>UNDO STROKE</div></div>
+    <div class="card"><div class="card-icon">✌️</div><div class="card-text">PEACE SIGN<br>NEXT COLOR</div></div>
+    <div class="card"><div class="card-icon">✊</div><div class="card-text">FIST<br>ERASE MODE</div></div>
+    <div class="card"><div class="card-icon">🤙</div><div class="card-text">HANG LOOSE<br>CLEAR ALL</div></div>
+  </div>
+
+  <div id="statusMsg">CLICK ACTIVATE TO BEGIN</div>
+  <div class="pbar"><div id="pfill"></div></div>
+  <button class="obtn" id="startBtn" onclick="startApp()">ACTIVATE</button>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div>
+    <span class="logo">AIR DRAW</span>
+    <span class="version">v1.1</span>
+  </div>
+  <div class="hstatus">
+    <span><i class="dot" id="dCam"></i>CAM</span>
+    <span><i class="dot" id="dHand"></i>HAND</span>
+    <span><i class="dot" id="dDraw"></i>DRAW</span>
+    <span><i class="dot" id="dModel"></i>MODEL</span>
+  </div>
+</header>
+
+<div class="main">
+  <div class="canvas-wrapper">
+    <div class="grid-bg"></div>
+    <video id="video" autoplay="" playsinline="" muted=""></video>
+    <canvas id="drawCanvas"></canvas>
+    <canvas id="overlayCanvas"></canvas>
+    <div id="gestureToast"></div>
+    <div id="gestureRing"></div>
+  </div>
+
+  <div class="sidebar">
+
+    <div class="panel">
+      <div class="ptitle">// COLOR</div>
+      <div class="colors" id="colorGrid"><div class="swatch sel" style="background: rgb(0, 245, 255); box-shadow: rgb(0, 245, 255) 0px 0px 4px;"></div><div class="swatch" style="background: rgb(255, 0, 170); box-shadow: rgb(255, 0, 170) 0px 0px 4px;"></div><div class="swatch" style="background: rgb(255, 215, 0); box-shadow: rgb(255, 215, 0) 0px 0px 4px;"></div><div class="swatch" style="background: rgb(0, 255, 136); box-shadow: rgb(0, 255, 136) 0px 0px 4px;"></div><div class="swatch" style="background: rgb(255, 102, 0); box-shadow: rgb(255, 102, 0) 0px 0px 4px;"></div><div class="swatch" style="background: rgb(204, 0, 255); box-shadow: rgb(204, 0, 255) 0px 0px 4px;"></div><div class="swatch" style="background: rgb(255, 255, 255); box-shadow: rgb(255, 255, 255) 0px 0px 4px;"></div><div class="swatch" style="background: rgb(255, 68, 102); box-shadow: rgb(255, 68, 102) 0px 0px 4px;"></div><div class="swatch" style="background: rgb(0, 170, 255); box-shadow: rgb(0, 170, 255) 0px 0px 4px;"></div></div>
+    </div>
+
+    <div class="panel">
+      <div class="ptitle">// BRUSH</div>
+      <div class="brushes" id="brushRow"><button class="bbtn"><div class="bdot" style="width: 4.5px; height: 4.5px;"></div></button><button class="bbtn sel"><div class="bdot" style="width: 10.5px; height: 10.5px;"></div></button><button class="bbtn"><div class="bdot" style="width: 21px; height: 21px;"></div></button></div>
+    </div>
+
+    <div class="panel">
+      <div class="ptitle">// OPACITY</div>
+      <div class="srow"><span class="slabel">ALPHA</span><span class="sval" id="vOpacity">100%</span></div>
+      <input type="range" id="rOpacity" min="10" max="100" value="100">
+    </div>
+
+    <div class="panel">
+      <div class="ptitle">// GLOW</div>
+      <div class="srow"><span class="slabel">BLUR</span><span class="sval" id="vGlow">14px</span></div>
+      <input type="range" id="rGlow" min="0" max="40" value="14">
+    </div>
+
+    <div class="panel">
+      <div class="ptitle">// SMOOTH</div>
+      <div class="srow"><span class="slabel">LEVEL</span><span class="sval" id="vSmooth">6</span></div>
+      <input type="range" id="rSmooth" min="1" max="16" value="6">
+    </div>
+
+    <div class="panel">
+      <div class="ptitle">// SENSITIVITY</div>
+      <div class="srow"><span class="slabel">PINCH</span><span class="sval" id="vPinch">0.07</span></div>
+      <input type="range" id="rPinch" min="3" max="15" value="7">
+      <div style="height:5px"></div>
+      <div class="srow"><span class="slabel">MIN CONF</span><span class="sval" id="vConf">0.60</span></div>
+      <input type="range" id="rConf" min="30" max="90" value="60">
+    </div>
+
+    <div class="panel">
+      <div class="ptitle">// GESTURES</div>
+      <div class="gleg">
+        <div class="gleg-row" id="gDraw">  <span class="gleg-icon">☝️</span><span class="gleg-label">DRAW</span></div>
+        <div class="gleg-row" id="gPinch"> <span class="gleg-icon">🤏</span><span class="gleg-label">LIFT PEN</span></div>
+        <div class="gleg-row" id="gPalm">  <span class="gleg-icon">✋</span><span class="gleg-label">UNDO</span></div>
+        <div class="gleg-row" id="gPeace"> <span class="gleg-icon">✌️</span><span class="gleg-label">NEXT COLOR</span></div>
+        <div class="gleg-row" id="gFist">  <span class="gleg-icon">✊</span><span class="gleg-label">ERASE</span></div>
+        <div class="gleg-row" id="gHang">  <span class="gleg-icon">🤙</span><span class="gleg-label">CLEAR ALL</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="ptitle">// ACTIONS</div>
+      <button class="btn" onclick="undoLast()">⌫ UNDO STROKE</button>
+      <button class="btn red" onclick="clearAll()">⊘ CLEAR ALL</button>
+      <button class="btn" onclick="saveImg()">↓ SAVE PNG</button>
+    </div>
+
+    <div class="panel">
+      <div class="ptitle">// STATS</div>
+      <div class="stat"><span class="sk">STROKES</span><span class="sv" id="sStrokes">0</span></div>
+      <div class="stat"><span class="sk">POINTS</span> <span class="sv" id="sPoints">0</span></div>
+      <div class="stat"><span class="sk">FPS</span>    <span class="sv" id="sFps">--</span></div>
+      <div class="stat"><span class="sk">MODE</span>   <span class="sv" id="sMode">DRAW</span></div>
+    </div>
+
+    <div class="panel">
+      <div id="debugPanel">
+        <div class="dtitle">// DEBUG</div>
+        <div class="drow"><span>MODEL</span>    <span class="dval" id="dbModel">--</span></div>
+        <div class="drow"><span>DETECTED</span><span class="dval" id="dbDetected">NO</span></div>
+        <div class="drow"><span>CONF</span>     <span class="dval" id="dbConf">--</span></div>
+        <div class="dbar"><div class="dfill" id="dbConfBar" style="width:0%"></div></div>
+        <div class="drow"><span>GESTURE</span> <span class="dval" id="dbGesture">--</span></div>
+        <div class="drow"><span>FINGERS</span> <span class="dval" id="dbFingers">--</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="gbar">
+  <div class="gi"><span>☝️</span>DRAW</div>
+  <div class="gi"><span>🤏</span>LIFT</div>
+  <div class="gi"><span>✌️</span>COLOR</div>
+  <div class="gi"><span>✊</span>ERASE</div>
+  <div class="gi"><span>✋</span>UNDO</div>
+  <div class="gi"><span>🤙</span>CLEAR</div>
+</div>
+
+<script>
+// ─── COLORS & CONFIG ─────────────────────────────────────────────────────────
+const COLORS  = ['#00f5ff','#ff00aa','#ffd700','#00ff88','#ff6600','#cc00ff','#ffffff','#ff4466','#00aaff'];
+const BRUSHSZ = [3, 7, 14];
+
+let colorIdx  = 0;
+let color     = COLORS[0];
+let brush     = 7;
+let opacity   = 1.0;
+let glow      = 14;
+let smooth    = 6;
+let pinchThr  = 0.07;
+let confThr   = 0.60;
+let eraseMode = false;
+
+// ─── DRAWING STATE ───────────────────────────────────────────────────────────
+let strokes    = [];
+let curStroke  = [];
+let totalPts   = 0;
+let drawing    = false;
+let posBuffer  = [];
+let lastX = null, lastY = null;
+
+// Gesture hold timers (prevent instant re-trigger)
+let gestureCooldown = 0;
+const COOLDOWN_MS   = 800;
+
+// Previous gesture for change detection
+let lastGesture = 'NONE';
+
+// FPS
+let fpsT = Date.now(), fpsN = 0;
+
+// ─── CANVAS ──────────────────────────────────────────────────────────────────
+const video    = document.getElementById('video');
+const drawCvs  = document.getElementById('drawCanvas');
+const ovCvs    = document.getElementById('overlayCanvas');
+const dctx     = drawCvs.getContext('2d');
+const octx     = ovCvs.getContext('2d');
+const toast    = document.getElementById('gestureToast');
+const ring     = document.getElementById('gestureRing');
+
+function resize() {
+  const w = document.querySelector('.canvas-wrapper');
+  drawCvs.width = ovCvs.width  = w.clientWidth;
+  drawCvs.height = ovCvs.height = w.clientHeight;
+  redrawAll();
+}
+window.addEventListener('resize', resize);
+
+// ─── UI SETUP ────────────────────────────────────────────────────────────────
+function buildColorGrid() {
+  const cg = document.getElementById('colorGrid');
+  cg.innerHTML = '';
+  COLORS.forEach((c, i) => {
+    const d = document.createElement('div');
+    d.className = 'swatch' + (i === colorIdx ? ' sel' : '');
+    d.style.cssText = `background:${c};box-shadow:0 0 4px ${c}`;
+    d.onclick = () => setColor(i);
+    cg.appendChild(d);
+  });
+}
+
+function setColor(i) {
+  colorIdx = ((i % COLORS.length) + COLORS.length) % COLORS.length;
+  color = COLORS[colorIdx];
+  buildColorGrid();
+}
+
+buildColorGrid();
+
+const br = document.getElementById('brushRow');
+BRUSHSZ.forEach(sz => {
+  const b = document.createElement('button');
+  b.className = 'bbtn' + (sz === brush ? ' sel' : '');
+  const dot = document.createElement('div');
+  dot.className = 'bdot';
+  dot.style.cssText = `width:${sz*1.5}px;height:${sz*1.5}px`;
+  b.appendChild(dot);
+  b.onclick = () => {
+    document.querySelectorAll('.bbtn').forEach(x=>x.classList.remove('sel'));
+    b.classList.add('sel'); brush = sz;
+  };
+  br.appendChild(b);
+});
+
+document.getElementById('rOpacity').oninput = e => { opacity = e.target.value/100; document.getElementById('vOpacity').textContent = e.target.value+'%'; };
+document.getElementById('rGlow').oninput    = e => { glow = +e.target.value;       document.getElementById('vGlow').textContent = glow+'px'; };
+document.getElementById('rSmooth').oninput  = e => { smooth = +e.target.value;     document.getElementById('vSmooth').textContent = smooth; };
+document.getElementById('rPinch').oninput   = e => { pinchThr = e.target.value/100; document.getElementById('vPinch').textContent = pinchThr.toFixed(2); };
+document.getElementById('rConf').oninput    = e => { confThr  = e.target.value/100; document.getElementById('vConf').textContent  = confThr.toFixed(2); };
+
+// ─── TOAST / RING FEEDBACK ───────────────────────────────────────────────────
+let toastTimer = null;
+
+function showToast(msg, col) {
+  toast.textContent = msg;
+  toast.style.borderColor = col || 'var(--border)';
+  toast.style.color = col || 'var(--cyan)';
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 1200);
+}
+
+function updateRing(x, y, col, pulse) {
+  ring.style.left = x + 'px';
+  ring.style.top  = y + 'px';
+  ring.style.borderColor = col || 'var(--cyan)';
+  ring.style.boxShadow = `0 0 12px ${col || 'var(--cyan)'}`;
+  ring.classList.add('visible');
+  if (pulse) {
+    ring.classList.remove('pulse');
+    void ring.offsetWidth; // reflow
+    ring.classList.add('pulse');
+  }
+}
+
+function hideRing() { ring.classList.remove('visible'); }
+
+function highlightGesture(id) {
+  document.querySelectorAll('.gleg-row').forEach(r => r.classList.remove('active'));
+  const el = document.getElementById(id);
+  if (el) el.classList.add('active');
+}
+
+// ─── DRAWING ─────────────────────────────────────────────────────────────────
+function seg(x1, y1, x2, y2, c, sz, op, gl) {
+  dctx.save();
+  dctx.globalAlpha = op; dctx.strokeStyle = c; dctx.lineWidth = sz;
+  dctx.lineCap = 'round'; dctx.lineJoin = 'round';
+  if (gl > 0) { dctx.shadowColor = c; dctx.shadowBlur = gl; }
+  dctx.beginPath(); dctx.moveTo(x1,y1); dctx.lineTo(x2,y2); dctx.stroke();
+  dctx.restore();
+}
+
+function redrawAll() {
+  dctx.clearRect(0,0,drawCvs.width,drawCvs.height);
+  strokes.forEach(s => {
+    if (s.pts.length < 2) return;
+    dctx.save();
+    dctx.globalAlpha = s.op; dctx.strokeStyle = s.col; dctx.lineWidth = s.br;
+    dctx.lineCap = 'round'; dctx.lineJoin = 'round';
+    if (s.gl > 0) { dctx.shadowColor = s.col; dctx.shadowBlur = s.gl; }
+    dctx.beginPath(); dctx.moveTo(s.pts[0].x, s.pts[0].y);
+    s.pts.slice(1).forEach(p => dctx.lineTo(p.x, p.y));
+    dctx.stroke(); dctx.restore();
+  });
+}
+
+function undoLast() {
+  if (!strokes.length) return;
+  const s = strokes.pop();
+  totalPts -= s.pts.length;
+  document.getElementById('sPoints').textContent  = totalPts;
+  document.getElementById('sStrokes').textContent = strokes.length;
+  redrawAll();
+}
+
+function clearAll() {
+  strokes = []; curStroke = []; totalPts = 0; lastX = lastY = null; posBuffer = [];
+  document.getElementById('sPoints').textContent  = 0;
+  document.getElementById('sStrokes').textContent = 0;
+  dctx.clearRect(0,0,drawCvs.width,drawCvs.height);
+}
+
+function saveImg() {
+  const tmp = document.createElement('canvas');
+  tmp.width = drawCvs.width; tmp.height = drawCvs.height;
+  const t = tmp.getContext('2d');
+  t.fillStyle = '#020408'; t.fillRect(0,0,tmp.width,tmp.height);
+  t.drawImage(drawCvs,0,0);
+  const a = document.createElement('a');
+  a.download = `airdraw-v1.1-${Date.now()}.png`; a.href = tmp.toDataURL(); a.click();
+}
+
+// ─── KALMAN-INSPIRED SMOOTHING ───────────────────────────────────────────────
+// Weighted moving average — recent points weighted more heavily
+function smoothPos(x, y) {
+  posBuffer.push({x, y});
+  if (posBuffer.length > smooth) posBuffer.shift();
+  const n = posBuffer.length;
+  let wx = 0, wy = 0, wt = 0;
+  posBuffer.forEach((p, i) => {
+    const w = i + 1; // more recent = higher weight
+    wx += p.x * w; wy += p.y * w; wt += w;
+  });
+  return { x: wx/wt, y: wy/wt };
+}
+
+// ─── ERASE AT POSITION ───────────────────────────────────────────────────────
+const ERASE_RADIUS = 30;
+function eraseAt(ex, ey) {
+  // Remove any stroke point within ERASE_RADIUS
+  strokes = strokes.filter(s => {
+    const hit = s.pts.some(p => {
+      const dx = p.x - ex, dy = p.y - ey;
+      return Math.sqrt(dx*dx+dy*dy) < ERASE_RADIUS;
+    });
+    return !hit;
+  });
+  redrawAll();
+}
+
+// ─── OVERLAY ─────────────────────────────────────────────────────────────────
+const CONN = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [5,9],[9,10],[10,11],[11,12],
+  [9,13],[13,14],[14,15],[15,16],
+  [13,17],[0,17],[17,18],[18,19],[19,20]
+];
+
+function drawOverlay(lm, gesture) {
+  octx.clearRect(0,0,ovCvs.width,ovCvs.height);
+  if (!lm) return;
+  const W = ovCvs.width, H = ovCvs.height;
+  const px = i => (1 - lm[i].x) * W;
+  const py = i => lm[i].y * H;
+
+  // Color by gesture
+  const gc = gesture === 'DRAW'  ? '#00f5ff'
+           : gesture === 'PINCH' ? '#ff00aa'
+           : gesture === 'PEACE' ? '#ffd700'
+           : gesture === 'FIST'  ? '#ff4466'
+           : gesture === 'PALM'  ? '#00ff88'
+           : gesture === 'HANG'  ? '#cc00ff'
+           : '#ffffff';
+
+  // Skeleton
+  octx.strokeStyle = `${gc}33`; octx.lineWidth = 1.5;
+  CONN.forEach(([a,b]) => {
+    octx.beginPath(); octx.moveTo(px(a),py(a)); octx.lineTo(px(b),py(b)); octx.stroke();
+  });
+
+  // Joints
+  lm.forEach((_,i) => {
+    const isKey = [4,8,12,16,20].includes(i);
+    octx.beginPath();
+    octx.arc(px(i), py(i), isKey ? 5 : 3, 0, Math.PI*2);
+    octx.fillStyle = isKey ? gc : `${gc}66`;
+    octx.fill();
+  });
+
+  // Glow at index tip
+  const tx = px(8), ty = py(8);
+  const grad = octx.createRadialGradient(tx,ty,0,tx,ty,eraseMode?40:32);
+  grad.addColorStop(0, `${gc}88`); grad.addColorStop(1, `${gc}00`);
+  octx.fillStyle = grad;
+  octx.beginPath(); octx.arc(tx,ty, eraseMode?40:32, 0, Math.PI*2); octx.fill();
+
+  // Erase circle
+  if (eraseMode) {
+    octx.strokeStyle = '#ff446688'; octx.lineWidth = 2;
+    octx.setLineDash([5,4]);
+    octx.beginPath(); octx.arc(px(0), py(0), ERASE_RADIUS, 0, Math.PI*2); octx.stroke();
+    octx.setLineDash([]);
+  }
+
+  // Update ring position (CSS element over canvas)
+  updateRing(tx, ty, gc, false);
+}
+
+// ─── GESTURE DETECTION ───────────────────────────────────────────────────────
+function dist2D(a, b) {
+  const dx = a.x-b.x, dy = a.y-b.y;
+  return Math.sqrt(dx*dx+dy*dy);
+}
+
+// Is finger i extended?
+function fingerUp(lm, tip, pip) { return lm[tip].y < lm[pip].y; }
+
+function classifyGesture(lm) {
+  const index  = fingerUp(lm, 8,  6);
+  const middle = fingerUp(lm, 12, 10);
+  const ring   = fingerUp(lm, 16, 14);
+  const pinky  = fingerUp(lm, 20, 18);
+  const thumb  = lm[4].x < lm[3].x; // rough thumb check (mirrored)
+
+  const pinchDist  = dist2D(lm[4], lm[8]);
+  const pinching   = pinchDist < pinchThr;
+  const fingersUp  = [index, middle, ring, pinky].filter(Boolean).length;
+
+  // PINCH: thumb + index close together
+  if (pinching) return 'PINCH';
+
+  // FIST: all fingers down
+  if (!index && !middle && !ring && !pinky) return 'FIST';
+
+  // OPEN PALM: 4 fingers up
+  if (fingersUp >= 4) return 'PALM';
+
+  // PEACE: index + middle up, others down
+  if (index && middle && !ring && !pinky) return 'PEACE';
+
+  // HANG LOOSE (🤙): thumb + pinky only
+  // approximate: index, middle, ring all down, pinky up
+  if (!index && !middle && !ring && pinky) return 'HANG';
+
+  // DRAW: only index up
+  if (index && !middle && !ring && !pinky) return 'DRAW';
+
+  return 'NONE';
+}
+
+// ─── MAIN RESULTS HANDLER ────────────────────────────────────────────────────
+function onResults(results) {
+  // FPS counter
+  fpsN++;
+  if (Date.now() - fpsT > 1000) {
+    document.getElementById('sFps').textContent = fpsN;
+    fpsN = 0; fpsT = Date.now();
+  }
+
+  if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+    document.getElementById('dHand').className    = 'dot';
+    document.getElementById('dDraw').className    = 'dot';
+    document.getElementById('dbDetected').textContent = 'NO';
+    document.getElementById('dbDetected').style.color = '#ff4466';
+    document.getElementById('dbConf').textContent     = '--';
+    document.getElementById('dbConfBar').style.width  = '0%';
+    document.getElementById('dbGesture').textContent  = '--';
+    document.getElementById('dbFingers').textContent  = '--';
+    octx.clearRect(0,0,ovCvs.width,ovCvs.height);
+    hideRing();
+
+    // End current stroke
+    if (drawing && curStroke.length > 1) {
+      strokes.push({ pts:[...curStroke], col:color, br:brush, op:opacity, gl:glow });
+      document.getElementById('sStrokes').textContent = strokes.length;
+    }
+    curStroke=[]; drawing=false; lastX=lastY=null; posBuffer=[];
+    lastGesture = 'NONE';
+    return;
+  }
+
+  document.getElementById('dHand').className    = 'dot on';
+  document.getElementById('dbDetected').textContent = 'YES ✓';
+  document.getElementById('dbDetected').style.color = '#00ff88';
+
+  const lm   = results.multiHandLandmarks[0];
+  const conf = results.multiHandedness?.[0]?.score ?? 1;
+  document.getElementById('dbConf').textContent    = (conf*100).toFixed(0)+'%';
+  document.getElementById('dbConfBar').style.width = (conf*100)+'%';
+
+  if (conf < confThr) {
+    drawOverlay(lm, 'NONE');
+    return;
+  }
+
+  const gesture = classifyGesture(lm);
+  document.getElementById('dbGesture').textContent = gesture;
+  document.getElementById('dbFingers').textContent = [8,12,16,20].filter(t => lm[t].y < lm[t-2].y).length + '/4';
+
+  drawOverlay(lm, gesture);
+
+  // Canvas coords for index tip
+  const W = drawCvs.width, H = drawCvs.height;
+  const tipX = (1 - lm[8].x) * W;
+  const tipY = lm[8].y * H;
+  const palmX = (1 - lm[0].x) * W;
+  const palmY = lm[0].y * H;
+
+  const now = Date.now();
+  const canAct = now > gestureCooldown;
+  const gestureChanged = gesture !== lastGesture;
+
+  // ── GESTURE ACTIONS ──────────────────────────────────────────────────────
+  if (gesture === 'FIST') {
+    highlightGesture('gFist');
+    if (!eraseMode) {
+      eraseMode = true;
+      document.getElementById('sMode').textContent = 'ERASE';
+      document.getElementById('sMode').style.color = '#ff4466';
+      showToast('✊  ERASE MODE', '#ff4466');
+      updateRing(tipX, tipY, '#ff4466', true);
+    }
+    // Erase while fist held
+    if (drawing && curStroke.length > 1) {
+      strokes.push({ pts:[...curStroke], col:color, br:brush, op:opacity, gl:glow });
+      curStroke=[]; drawing=false; lastX=lastY=null;
+    }
+    eraseAt(palmX, palmY);
+    lastGesture = gesture;
+    return;
+  }
+
+  // Exit erase mode
+  if (eraseMode && gesture !== 'FIST') {
+    eraseMode = false;
+    document.getElementById('sMode').textContent = 'DRAW';
+    document.getElementById('sMode').style.color = 'var(--cyan)';
+    showToast('☝️  DRAW MODE', '#00f5ff');
+  }
+
+  if (gesture === 'PALM' && gestureChanged && canAct) {
+    highlightGesture('gPalm');
+    gestureCooldown = now + COOLDOWN_MS;
+    if (drawing && curStroke.length > 1) {
+      strokes.push({ pts:[...curStroke], col:color, br:brush, op:opacity, gl:glow });
+      curStroke=[]; drawing=false; lastX=lastY=null; posBuffer=[];
+    }
+    undoLast();
+    showToast('✋  UNDO', '#00ff88');
+    updateRing(tipX, tipY, '#00ff88', true);
+    lastGesture = gesture;
+    return;
+  }
+
+  if (gesture === 'PEACE' && gestureChanged && canAct) {
+    highlightGesture('gPeace');
+    gestureCooldown = now + COOLDOWN_MS;
+    if (drawing && curStroke.length > 1) {
+      strokes.push({ pts:[...curStroke], col:color, br:brush, op:opacity, gl:glow });
+      curStroke=[]; drawing=false; lastX=lastY=null; posBuffer=[];
+    }
+    setColor(colorIdx + 1);
+    showToast('✌️  ' + color, '#ffd700');
+    updateRing(tipX, tipY, '#ffd700', true);
+    lastGesture = gesture;
+    return;
+  }
+
+  if (gesture === 'HANG' && gestureChanged && canAct) {
+    highlightGesture('gHang');
+    gestureCooldown = now + COOLDOWN_MS;
+    clearAll();
+    showToast('🤙  CLEARED', '#cc00ff');
+    updateRing(tipX, tipY, '#cc00ff', true);
+    lastGesture = gesture;
+    return;
+  }
+
+  if (gesture === 'PINCH') {
+    highlightGesture('gPinch');
+    if (drawing && curStroke.length > 1) {
+      strokes.push({ pts:[...curStroke], col:color, br:brush, op:opacity, gl:glow });
+      document.getElementById('sStrokes').textContent = strokes.length;
+    }
+    curStroke=[]; drawing=false; lastX=lastY=null; posBuffer=[];
+    document.getElementById('dDraw').className = 'dot';
+    lastGesture = gesture;
+    return;
+  }
+
+  if (gesture === 'DRAW') {
+    highlightGesture('gDraw');
+    const { x, y } = smoothPos(tipX, tipY);
+
+    if (!drawing) {
+      drawing = true; lastX = x; lastY = y;
+      curStroke = [{ x, y }];
+      document.getElementById('dDraw').className = 'dot draw';
+    } else {
+      seg(lastX, lastY, x, y, color, brush, opacity, glow);
+      curStroke.push({ x, y });
+      totalPts++;
+      document.getElementById('sPoints').textContent = totalPts;
+      lastX = x; lastY = y;
+    }
+  } else {
+    // Unknown / NONE — end stroke
+    if (drawing && curStroke.length > 1) {
+      strokes.push({ pts:[...curStroke], col:color, br:brush, op:opacity, gl:glow });
+      document.getElementById('sStrokes').textContent = strokes.length;
+    }
+    curStroke=[]; drawing=false; lastX=lastY=null; posBuffer=[];
+    document.getElementById('dDraw').className = 'dot';
+  }
+
+  lastGesture = gesture;
+}
+
+// ─── START ───────────────────────────────────────────────────────────────────
+function setMsg(t) { document.getElementById('statusMsg').textContent = t; }
+function setProg(p){ document.getElementById('pfill').style.width = p + '%'; }
+
+async function startApp() {
+  document.getElementById('startBtn').disabled = true;
+
+  setMsg('REQUESTING CAMERA...'); setProg(10);
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width:{ideal:1280}, height:{ideal:720}, facingMode:'user' }
+    });
+    video.srcObject = stream;
+    await new Promise(r => { video.onloadedmetadata = r; });
+    await video.play();
+    document.getElementById('dCam').className = 'dot on';
+    setMsg('CAMERA READY ✓'); setProg(30);
+  } catch(e) {
+    setMsg('⚠ CAMERA DENIED — allow camera and refresh');
+    document.getElementById('startBtn').disabled = false; return;
+  }
+
+  setMsg('LOADING MEDIAPIPE HANDS...'); setProg(50);
+  document.getElementById('dbModel').textContent = 'loading...';
+
+  try {
+    const hands = new Hands({
+      locateFile: f => `https://unpkg.com/@mediapipe/hands@0.4.1646424915/${f}`
+    });
+
+    hands.setOptions({
+      maxNumHands:            1,
+      modelComplexity:        1,    // full model
+      minDetectionConfidence: 0.55,
+      minTrackingConfidence:  0.5
+    });
+
+    hands.onResults(onResults);
+
+    const cam = new Camera(video, {
+      onFrame: async () => { await hands.send({ image: video }); },
+      width: 1280, height: 720
+    });
+    await cam.start();
+
+    document.getElementById('dModel').className = 'dot on';
+    document.getElementById('dbModel').textContent = 'MP HANDS FULL ✓';
+    setMsg('READY ✓ — SHOW YOUR HAND'); setProg(100);
+  } catch(e) {
+    document.getElementById('dModel').className = 'dot warn';
+    document.getElementById('dbModel').textContent = 'FAILED';
+    setMsg('⚠ ' + e.message + ' — Disable Brave Shields & retry');
+    document.getElementById('startBtn').disabled = false; return;
+  }
+
+  resize();
+  await new Promise(r => setTimeout(r, 500));
+
+  const ov = document.getElementById('overlay');
+  ov.style.transition = 'opacity 0.5s'; ov.style.opacity = '0';
+  setTimeout(() => ov.style.display = 'none', 500);
+}
+</script>
+
+
+</body></html>
