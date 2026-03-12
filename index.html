@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0054)file:///C:/Users/G%20M%20HRISHI/Downloads/index_9.html -->
+<!-- saved from url=(0055)file:///C:/Users/G%20M%20HRISHI/Downloads/index_11.html -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,12 +7,62 @@
 <link href="./index_files/css2" rel="stylesheet">
 
 <!--
-  Using unpkg CDN (Brave-friendly) + MediaPipe runtime (no WASM download issues)
-  MediaPipe Hands runs fully in-browser via WebAssembly
+  Loading MediaPipe via jsDelivr (more reliable than unpkg on restricted networks)
+  Falls back to unpkg if jsDelivr fails
 -->
-<script src="./index_files/hands.js.download" crossorigin="anonymous"></script>
-<script src="./index_files/camera_utils.js.download" crossorigin="anonymous"></script>
-<script src="./index_files/drawing_utils.js.download" crossorigin="anonymous"></script>
+<script>
+// Dynamic CDN loader with fallback
+function loadScript(url) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = url; s.crossOrigin = 'anonymous';
+    s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+window._mpReady = (async () => {
+  const libs = [
+    {
+      name: 'hands',
+      urls: [
+        'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js',
+        'https://unpkg.com/@mediapipe/hands@0.4.1646424915/hands.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/mediapipe/0.4.1646424915/hands.js'
+      ]
+    },
+    {
+      name: 'camera_utils',
+      urls: [
+        'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js',
+        'https://unpkg.com/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js'
+      ]
+    },
+    {
+      name: 'drawing_utils',
+      urls: [
+        'https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js',
+        'https://unpkg.com/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js'
+      ]
+    }
+  ];
+
+  for (const lib of libs) {
+    let loaded = false;
+    for (const url of lib.urls) {
+      try {
+        await loadScript(url);
+        loaded = true;
+        console.log(`✓ ${lib.name} loaded from ${url.split('/')[2]}`);
+        break;
+      } catch(e) {
+        console.warn(`✗ ${lib.name} failed: ${url.split('/')[2]}`);
+      }
+    }
+    if (!loaded) throw new Error(`All CDNs failed for ${lib.name}`);
+  }
+})();
+</script><script src="./index_files/hands.js.download" crossorigin="anonymous"></script>
 
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -256,7 +306,7 @@ input[type=range]::-webkit-slider-thumb {
 .obtn:hover { background: rgba(0,245,255,0.07); box-shadow: 0 0 25px rgba(0,245,255,0.25); }
 .obtn:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>
-</head>
+<script src="./index_files/camera_utils.js.download" crossorigin="anonymous"></script><script src="./index_files/drawing_utils.js.download" crossorigin="anonymous"></script></head>
 <body>
 
 <!-- OVERLAY -->
@@ -769,30 +819,48 @@ async function startApp() {
   setMsg('LOADING MEDIAPIPE MODEL...'); setProg(45);
   document.getElementById('dbModel').textContent = 'loading...';
 
+  // Wait for dynamic scripts to finish loading
   try {
-    handsModel = new Hands({
-      locateFile: file => `https://unpkg.com/@mediapipe/hands@0.4.1646424915/${file}`
-    });
+    await window._mpReady;
+  } catch(e) {
+    setMsg('⚠ CDN FAILED: ' + e.message + ' — Try a different network');
+    document.getElementById('startBtn').disabled = false;
+    return;
+  }
 
-    handsModel.setOptions({
-      maxNumHands:            1,
-      modelComplexity:        1,   // 0=lite, 1=full (more accurate)
-      minDetectionConfidence: 0.5, // lower = detects more (less strict)
-      minTrackingConfidence:  0.5
-    });
+  try {
+    const locateCDNs = [
+      file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`,
+      file => `https://unpkg.com/@mediapipe/hands@0.4.1646424915/${file}`
+    ];
 
-    handsModel.onResults(onResults);
+    let loaded = false;
+    for (const locateFn of locateCDNs) {
+      try {
+        handsModel = new Hands({ locateFile: locateFn });
+        handsModel.setOptions({
+          maxNumHands:            1,
+          modelComplexity:        1,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence:  0.5
+        });
+        handsModel.onResults(onResults);
+        camUtil = new Camera(video, {
+          onFrame: async () => { await handsModel.send({ image: video }); },
+          width: 1280, height: 720
+        });
+        await camUtil.start();
+        loaded = true;
+        console.log('✓ Model loaded with', locateFn('test'));
+        break;
+      } catch(e) {
+        console.warn('Model failed with CDN, trying next...', e.message);
+        if (handsModel) { try { handsModel.close(); } catch(_){} handsModel = null; }
+        if (camUtil)    { try { camUtil.stop();      } catch(_){} camUtil = null;    }
+      }
+    }
 
-    // Use MediaPipe Camera utility for reliable frame feeding
-    camUtil = new Camera(video, {
-      onFrame: async () => {
-        await handsModel.send({ image: video });
-      },
-      width: 1280,
-      height: 720
-    });
-
-    await camUtil.start();
+    if (!loaded) throw new Error('All model CDNs failed');
 
     document.getElementById('dModel').className = 'dot on';
     document.getElementById('dbModel').textContent = 'MEDIAPIPE FULL ✓';
