@@ -101,6 +101,18 @@ body::after {
 #drawCanvas { position:fixed;inset:0;width:100%;height:100%;z-index:1; }
 #overlayCanvas { position:fixed;inset:0;width:100%;height:100%;z-index:2;pointer-events:none; }
 
+/* eraser hitbox */
+#eraserBox {
+  position:fixed;
+  border:3px solid rgba(255,255,255,0.8);
+  background:rgba(255,255,255,0.05);
+  pointer-events:none;
+  z-index:3;
+  display:none;
+  box-shadow:0 0 15px rgba(255,255,255,0.3), inset 0 0 15px rgba(255,255,255,0.1);
+}
+#eraserBox.active { display:block; }
+
 /* corners */
 .corner { position:fixed;width:24px;height:24px;z-index:200;pointer-events:none;opacity:0.3; }
 .corner::before,.corner::after{content:'';position:absolute;background:var(--a);}
@@ -708,7 +720,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
       <div class="is-tips">
         <div class="is-tip">
           <span class="is-tip-title">⊕ GESTURE CONFIG</span>
-          Click the <b>⊕ GESTURES</b> button at the <b>bottom-right</b> of the screen to enable or disable individual gestures at any time.
+          Click the <b>⊕ GESTURES</b> button at the <b>top-right</b> of the screen to enable or disable individual gestures at any time.
         </div>
         <div class="is-tip">
           <span class="is-tip-title">≡ SETTINGS PANEL</span>
@@ -733,10 +745,11 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
 <video id="video" autoplay="" playsinline="" muted=""></video>
 <canvas id="drawCanvas"></canvas>
 <canvas id="overlayCanvas"></canvas>
+<div id="eraserBox"></div>
 
 <!-- CORNERS -->
 <div class="corner tl"></div><div class="corner tr"></div>
-<div class="corner bl"></div><div class="corner br"></div>
+<div class="corner bl"></div>
 
 <!-- TOPBAR -->
 <div id="topbar">
@@ -986,6 +999,9 @@ let drawing=false,eraseArmed=false,eraseMode=false,peaceArmed=false,hangArmed=fa
 let colorIdx=0,posBuffer=[],lastX=null,lastY=null;
 let fpsT=Date.now(),fpsN=0,panelOpen=false,tcStart=Date.now();
 let holdStart={};
+
+// Eraser hitbox size (pixels)
+const ERASER_SIZE = 120;
 
 const video=document.getElementById('video');
 const dCvs=document.getElementById('drawCanvas');
@@ -1245,6 +1261,8 @@ function onResults(results){
     ['dbConf','dbGesture','dbPinch','dbFingers'].forEach(id=>document.getElementById(id).textContent='--');
     document.getElementById('dbConfBar').style.width='0%';
     setMode('--');drawOverlay(null,false,false,false);
+    // Hide eraser box when hand not detected
+    document.getElementById('eraserBox').classList.remove('active');
     if(drawing&&curStroke.length>1){
       strokes.push({pts:[...curStroke],col:color,br:brush,op:opacity,gl:glow});
       document.getElementById('sStrokes').textContent=strokes.length;
@@ -1280,12 +1298,79 @@ function onResults(results){
       document.getElementById('gs-fist')?.classList.add('act');
       setMode('ERASE');
       const W=dCvs.width,H=dCvs.height;
-      const ex=(1-lm[0].x)*W,ey=lm[0].y*H;
-      strokes=strokes.filter(s=>!s.pts.some(p=>Math.hypot(p.x-ex,p.y-ey)<42));
+      
+      // Position box at middle of hand (palm center - landmark 9 is middle finger base)
+      const handX=(1-lm[9].x)*W;
+      const handY=lm[9].y*H;
+      
+      // Show eraser hitbox
+      const eraserBox = document.getElementById('eraserBox');
+      eraserBox.classList.add('active');
+      eraserBox.style.left = (handX - ERASER_SIZE/2) + 'px';
+      eraserBox.style.top = (handY - ERASER_SIZE/2) + 'px';
+      eraserBox.style.width = ERASER_SIZE + 'px';
+      eraserBox.style.height = ERASER_SIZE + 'px';
+      
+      // Erase box boundaries
+      const boxLeft = handX - ERASER_SIZE/2;
+      const boxRight = handX + ERASER_SIZE/2;
+      const boxTop = handY - ERASER_SIZE/2;
+      const boxBottom = handY + ERASER_SIZE/2;
+      
+      // Helper function to check if point is inside box
+      const isInBox = (p) => p.x >= boxLeft && p.x <= boxRight && p.y >= boxTop && p.y <= boxBottom;
+      
+      // Process each stroke - split into segments
+      const newStrokes = [];
+      for(const stroke of strokes) {
+        const newSegments = [];
+        let currentSegment = [];
+        
+        for(let i = 0; i < stroke.pts.length; i++) {
+          const pt = stroke.pts[i];
+          
+          if(!isInBox(pt)) {
+            // Point is outside box - keep it
+            currentSegment.push(pt);
+          } else {
+            // Point is inside box - erase it
+            if(currentSegment.length > 1) {
+              // Save the current segment before the erased part
+              newSegments.push([...currentSegment]);
+            }
+            currentSegment = [];
+          }
+        }
+        
+        // Add final segment if exists
+        if(currentSegment.length > 1) {
+          newSegments.push(currentSegment);
+        }
+        
+        // Create new strokes from segments
+        for(const seg of newSegments) {
+          if(seg.length > 1) {
+            newStrokes.push({
+              pts: seg,
+              col: stroke.col,
+              br: stroke.br,
+              op: stroke.op,
+              gl: stroke.gl
+            });
+          }
+        }
+      }
+      
+      strokes = newStrokes;
       redrawAll();eraseArmed=false;peaceArmed=false;hangArmed=false;return;
     }
   } else held('fist',false);
-  if(eraseMode&&!fist)eraseMode=false;
+  
+  // Hide eraser box when not in erase mode
+  if(eraseMode&&!fist){
+    eraseMode=false;
+    document.getElementById('eraserBox').classList.remove('active');
+  }
 
   // ── HANG → clear (hold 360ms) ──
   if(hang&&gOn('hang')){
