@@ -6,6 +6,31 @@
 <title>AIR DRAW v1.2</title>
 <link href="./index_files/css2" rel="stylesheet">
 
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+// Firebase Configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyBQU2Kvo4MdIvzuo6Ug3uAfrQdvLBM_qho",
+  authDomain: "air-write.firebaseapp.com",
+  projectId: "air-write",
+  storageBucket: "air-write.firebasestorage.app",
+  messagingSenderId: "804730160988",
+  appId: "1:804730160988:web:4bce8beaefbf10a0f26399"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// Auth state
+let currentUser = null;
+</script>
+
 <script>
 function loadScript(url) {
   return new Promise((resolve, reject) => {
@@ -336,6 +361,221 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
   margin-top:4px;
 }
 .is-start:hover { background:var(--a3);box-shadow:0 0 22px rgba(232,160,0,0.18); }
+
+/* ── AUTH & GALLERY MODALS ── */
+.auth-modal {
+  position:fixed;inset:0;background:rgba(0,0,0,0.88);
+  z-index:1100;display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity 0.25s;
+  backdrop-filter:blur(8px);
+}
+.auth-modal.open { opacity:1;pointer-events:all; }
+
+.auth-box {
+  background:rgba(6,5,0,0.98);border:1px solid var(--ab);
+  border-radius:3px;padding:32px 36px;width:340px;max-width:92vw;
+  box-shadow:0 0 80px rgba(0,0,0,0.9),0 0 30px rgba(232,160,0,0.08);
+  position:relative;
+}
+.auth-box::before {
+  content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.15) 2px,rgba(0,0,0,0.15) 3px);
+  opacity:0.5;border-radius:3px;
+}
+.auth-title {
+  font-family:'VT323',monospace;font-size:1.4rem;letter-spacing:8px;
+  color:var(--a);text-align:center;margin-bottom:4px;
+  text-shadow:0 0 20px rgba(232,160,0,0.4);
+}
+.auth-sub {
+  font-size:0.42rem;letter-spacing:3px;color:var(--dim);
+  text-align:center;margin-bottom:24px;text-transform:uppercase;
+}
+.auth-input {
+  width:100%;padding:12px 14px;margin-bottom:14px;
+  background:rgba(8,6,0,0.9);border:1px solid var(--ab);
+  border-radius:2px;color:var(--a);
+  font-family:'Space Mono',monospace;font-size:0.75rem;letter-spacing:1px;
+  outline:none;transition:all 0.2s;
+}
+.auth-input::placeholder { color:var(--dim);opacity:0.5; }
+.auth-input:focus { border-color:var(--a);box-shadow:0 0 12px rgba(232,160,0,0.15); }
+.auth-btn {
+  width:100%;padding:12px;margin-top:8px;
+  background:transparent;border:1px solid var(--a);color:var(--a);
+  font-family:'VT323',monospace;font-size:1rem;letter-spacing:5px;
+  text-transform:uppercase;cursor:pointer;border-radius:2px;
+  transition:all 0.2s;
+}
+.auth-btn:hover { background:var(--a3);box-shadow:0 0 20px rgba(232,160,0,0.2); }
+.auth-btn:disabled { opacity:0.4;cursor:not-allowed; }
+.auth-btn.secondary {
+  border-color:var(--ab);color:var(--dim);margin-top:10px;font-size:0.85rem;
+}
+.auth-btn.secondary:hover { border-color:var(--a);color:var(--a);background:var(--a3); }
+.auth-switch {
+  text-align:center;margin-top:18px;font-size:0.42rem;letter-spacing:1px;color:var(--dim);
+}
+.auth-switch a {
+  color:var(--a);cursor:pointer;text-decoration:none;border-bottom:1px solid transparent;
+  transition:border-color 0.2s;
+}
+.auth-switch a:hover { border-bottom-color:var(--a); }
+.auth-error {
+  background:rgba(255,68,68,0.1);border:1px solid rgba(255,68,68,0.3);
+  border-radius:2px;padding:10px;margin-bottom:14px;
+  font-size:0.42rem;letter-spacing:1px;color:#ff6666;
+  text-align:center;display:none;
+}
+.auth-error.show { display:block; }
+.auth-close {
+  position:absolute;top:12px;right:14px;
+  background:none;border:none;color:var(--dim);
+  font-size:1.2rem;cursor:pointer;transition:color 0.2s;
+  line-height:1;padding:4px;
+}
+.auth-close:hover { color:var(--a); }
+
+/* User indicator in topbar */
+#userIndicator {
+  display:flex;align-items:center;gap:10px;
+  pointer-events:all;
+}
+.user-tag {
+  display:flex;align-items:center;gap:6px;
+  font-size:0.45rem;letter-spacing:2px;color:var(--a);
+  cursor:pointer;padding:4px 8px;border:1px solid transparent;
+  border-radius:2px;transition:all 0.2s;
+}
+.user-tag:hover { border-color:var(--ab);background:var(--a3); }
+.user-avatar {
+  width:18px;height:18px;border-radius:50%;
+  background:var(--a3);border:1px solid var(--a);
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.5rem;color:var(--a);
+}
+.guest-tag {
+  font-size:0.4rem;letter-spacing:2px;color:var(--dim);
+  cursor:pointer;padding:4px 10px;border:1px solid var(--ab);
+  border-radius:2px;transition:all 0.2s;pointer-events:all;
+}
+.guest-tag:hover { border-color:var(--a);color:var(--a);background:var(--a3); }
+
+/* User dropdown */
+#userDropdown {
+  position:absolute;top:38px;right:0;
+  background:rgba(6,5,0,0.98);border:1px solid var(--ab);
+  border-radius:2px;min-width:160px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.6);
+  opacity:0;pointer-events:none;transform:translateY(-8px);
+  transition:all 0.2s;z-index:600;
+}
+#userDropdown.open { opacity:1;pointer-events:all;transform:translateY(0); }
+.dropdown-item {
+  padding:10px 14px;font-size:0.45rem;letter-spacing:2px;
+  color:var(--dim);cursor:pointer;transition:all 0.15s;
+  display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--ab);
+}
+.dropdown-item:last-child { border-bottom:none; }
+.dropdown-item:hover { background:var(--a3);color:var(--a); }
+.dropdown-item.red:hover { color:#ff6666;background:rgba(255,68,68,0.08); }
+
+/* Gallery Modal */
+.gallery-box {
+  background:rgba(6,5,0,0.98);border:1px solid var(--ab);
+  border-radius:3px;padding:28px;width:720px;max-width:94vw;max-height:85vh;
+  box-shadow:0 0 80px rgba(0,0,0,0.9);overflow:hidden;
+  display:flex;flex-direction:column;
+}
+.gallery-title {
+  font-family:'VT323',monospace;font-size:1.2rem;letter-spacing:6px;
+  color:var(--a);margin-bottom:4px;
+}
+.gallery-sub {
+  font-size:0.42rem;letter-spacing:2px;color:var(--dim);margin-bottom:18px;
+}
+.gallery-grid {
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;
+  overflow-y:auto;flex:1;padding-right:8px;
+}
+.gallery-grid::-webkit-scrollbar { width:3px; }
+.gallery-grid::-webkit-scrollbar-thumb { background:var(--ab);border-radius:2px; }
+.gallery-item {
+  border:1px solid var(--ab);border-radius:2px;overflow:hidden;
+  background:var(--a3);cursor:pointer;transition:all 0.2s;
+  position:relative;
+}
+.gallery-item:hover { border-color:var(--a);transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,0.4); }
+.gallery-thumb {
+  width:100%;aspect-ratio:16/10;object-fit:cover;
+  background:#080600;display:block;
+}
+.gallery-info {
+  padding:10px;border-top:1px solid var(--ab);
+}
+.gallery-name {
+  font-size:0.48rem;letter-spacing:1px;color:var(--a);
+  margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.gallery-date {
+  font-size:0.36rem;letter-spacing:1px;color:var(--dim);
+}
+.gallery-actions {
+  position:absolute;top:6px;right:6px;display:flex;gap:4px;
+  opacity:0;transition:opacity 0.2s;
+}
+.gallery-item:hover .gallery-actions { opacity:1; }
+.gallery-action-btn {
+  width:24px;height:24px;border-radius:2px;
+  background:rgba(6,5,0,0.9);border:1px solid var(--ab);
+  color:var(--dim);cursor:pointer;transition:all 0.15s;
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.65rem;
+}
+.gallery-action-btn:hover { border-color:var(--a);color:var(--a);background:var(--a3); }
+.gallery-action-btn.delete:hover { border-color:#ff4444;color:#ff4444;background:rgba(255,68,68,0.1); }
+.gallery-empty {
+  text-align:center;padding:60px 20px;color:var(--dim);
+}
+.gallery-empty-icon { font-size:3rem;margin-bottom:12px;opacity:0.3; }
+.gallery-empty-text { font-size:0.5rem;letter-spacing:2px; }
+.gallery-close {
+  margin-top:16px;padding:10px 32px;
+  background:transparent;border:1px solid var(--ab);color:var(--txt);
+  font-family:'Space Mono',monospace;font-size:0.48rem;letter-spacing:3px;
+  text-transform:uppercase;cursor:pointer;border-radius:2px;
+  transition:all 0.18s;align-self:center;
+}
+.gallery-close:hover { background:var(--a3);border-color:var(--a);color:var(--a); }
+
+/* Save Dialog */
+.save-dialog-box {
+  background:rgba(6,5,0,0.98);border:1px solid var(--ab);
+  border-radius:3px;padding:28px;width:360px;max-width:92vw;
+  box-shadow:0 0 60px rgba(0,0,0,0.9);
+}
+.save-dialog-title {
+  font-family:'VT323',monospace;font-size:1.1rem;letter-spacing:5px;
+  color:var(--a);margin-bottom:16px;text-align:center;
+}
+.save-dialog-btns {
+  display:flex;gap:10px;margin-top:16px;
+}
+.save-dialog-btns .auth-btn { flex:1; }
+
+/* Loading spinner */
+.auth-loading {
+  display:none;align-items:center;justify-content:center;
+  gap:8px;padding:12px;color:var(--a);
+}
+.auth-loading.show { display:flex; }
+.spinner {
+  width:16px;height:16px;border:2px solid var(--ab);
+  border-top-color:var(--a);border-radius:50%;
+  animation:spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
 </style>
 <script src="./index_files/camera_utils.js.download" crossorigin="anonymous"></script><script src="./index_files/drawing_utils.js.download" crossorigin="anonymous"></script></head>
 <body>
@@ -420,11 +660,26 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
 <!-- TOPBAR -->
 <div id="topbar">
   <div class="logo">AIR DRAW</div>
-  <div class="sysstatus">
-    <div class="sig"><div class="sd" id="dCam"></div><span>CAM</span></div>
-    <div class="sig"><div class="sd" id="dHand"></div><span>HAND</span></div>
-    <div class="sig"><div class="sd" id="dDraw"></div><span>DRAW</span></div>
-    <div class="sig"><div class="sd" id="dModel"></div><span>MDL</span></div>
+  <div style="display:flex;align-items:center;gap:18px;">
+    <div class="sysstatus">
+      <div class="sig"><div class="sd" id="dCam"></div><span>CAM</span></div>
+      <div class="sig"><div class="sd" id="dHand"></div><span>HAND</span></div>
+      <div class="sig"><div class="sd" id="dDraw"></div><span>DRAW</span></div>
+      <div class="sig"><div class="sd" id="dModel"></div><span>MDL</span></div>
+    </div>
+    <!-- User Indicator -->
+    <div id="userIndicator" style="position:relative;">
+      <div id="guestTag" class="guest-tag" onclick="openAuthModal('login')">⊕ LOGIN</div>
+      <div id="userTag" class="user-tag" style="display:none;" onclick="toggleUserDropdown()">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <span id="userName">USER</span>
+      </div>
+      <div id="userDropdown">
+        <div class="dropdown-item" onclick="openGallery()">🖼️ MY GALLERY</div>
+        <div class="dropdown-item" onclick="saveToCloud()">💾 SAVE DRAWING</div>
+        <div class="dropdown-item red" onclick="logoutUser()">⏻ LOGOUT</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -484,6 +739,8 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
     <button class="fpbtn" onclick="undoLast()">⌫ UNDO</button>
     <button class="fpbtn red" onclick="clearAll()">⊘ CLEAR ALL</button>
     <button class="fpbtn" onclick="saveImg()">↓ SAVE PNG</button>
+    <button class="fpbtn" onclick="saveToCloud()" style="border-color:rgba(77,255,145,0.3);color:rgba(77,255,145,0.7);">☁ SAVE TO CLOUD</button>
+    <button class="fpbtn" onclick="openGallery()">🖼 MY GALLERY</button>
   </div>
   <div class="fp-s">
     <div class="fp-t">// STATS</div>
@@ -527,6 +784,85 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
 
 <!-- TOAST -->
 <div id="toast"></div>
+
+<!-- LOGIN MODAL -->
+<div id="loginModal" class="auth-modal" onclick="authModalBg(event,'loginModal')">
+  <div class="auth-box">
+    <button class="auth-close" onclick="closeAuthModal('loginModal')">&times;</button>
+    <div class="auth-title">LOGIN</div>
+    <div class="auth-sub">Access your drawings</div>
+    <div id="loginError" class="auth-error"></div>
+    <input type="text" id="loginUsername" class="auth-input" placeholder="USERNAME" autocomplete="off">
+    <input type="password" id="loginPassword" class="auth-input" placeholder="PASSWORD">
+    <div id="loginLoading" class="auth-loading">
+      <div class="spinner"></div>
+      <span style="font-size:0.5rem;letter-spacing:2px;">AUTHENTICATING...</span>
+    </div>
+    <button id="loginBtn" class="auth-btn" onclick="loginUser()">LOGIN</button>
+    <div class="auth-switch">
+      Don't have an account? <a onclick="switchToSignup()">SIGN UP</a>
+    </div>
+  </div>
+</div>
+
+<!-- SIGNUP MODAL -->
+<div id="signupModal" class="auth-modal" onclick="authModalBg(event,'signupModal')">
+  <div class="auth-box">
+    <button class="auth-close" onclick="closeAuthModal('signupModal')">&times;</button>
+    <div class="auth-title">SIGN UP</div>
+    <div class="auth-sub">Create your account</div>
+    <div id="signupError" class="auth-error"></div>
+    <input type="text" id="signupUsername" class="auth-input" placeholder="USERNAME" autocomplete="off">
+    <input type="password" id="signupPassword" class="auth-input" placeholder="PASSWORD (min 6 chars)">
+    <input type="password" id="signupConfirm" class="auth-input" placeholder="CONFIRM PASSWORD">
+    <div id="signupLoading" class="auth-loading">
+      <div class="spinner"></div>
+      <span style="font-size:0.5rem;letter-spacing:2px;">CREATING ACCOUNT...</span>
+    </div>
+    <button id="signupBtn" class="auth-btn" onclick="signupUser()">CREATE ACCOUNT</button>
+    <div class="auth-switch">
+      Already have an account? <a onclick="switchToLogin()">LOGIN</a>
+    </div>
+  </div>
+</div>
+
+<!-- GALLERY MODAL -->
+<div id="galleryModal" class="auth-modal" onclick="authModalBg(event,'galleryModal')">
+  <div class="gallery-box">
+    <div class="gallery-title">MY GALLERY</div>
+    <div class="gallery-sub">YOUR SAVED DRAWINGS</div>
+    <div id="galleryGrid" class="gallery-grid">
+      <!-- Drawings will be loaded here -->
+    </div>
+    <button class="gallery-close" onclick="closeGallery()">CLOSE</button>
+  </div>
+</div>
+
+<!-- SAVE DIALOG -->
+<div id="saveDialog" class="auth-modal" onclick="authModalBg(event,'saveDialog')">
+  <div class="save-dialog-box">
+    <div class="save-dialog-title">SAVE DRAWING</div>
+    <input type="text" id="drawingName" class="auth-input" placeholder="DRAWING NAME" autocomplete="off">
+    <div class="save-dialog-btns">
+      <button class="auth-btn secondary" onclick="closeSaveDialog()">CANCEL</button>
+      <button class="auth-btn" onclick="confirmSave()">SAVE</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN PROMPT (for guest save) -->
+<div id="loginPrompt" class="auth-modal" onclick="authModalBg(event,'loginPrompt')">
+  <div class="save-dialog-box">
+    <div class="save-dialog-title">LOGIN REQUIRED</div>
+    <p style="font-size:0.48rem;letter-spacing:1px;color:var(--dim);text-align:center;margin-bottom:16px;line-height:1.8;">
+      Sign in to save your drawings to the cloud and access them from anywhere.
+    </p>
+    <div class="save-dialog-btns">
+      <button class="auth-btn secondary" onclick="closeLoginPrompt()">CANCEL</button>
+      <button class="auth-btn" onclick="promptToLogin()">LOGIN / SIGNUP</button>
+    </div>
+  </div>
+</div>
 
 <!-- STATUS BAR -->
 <div id="statusbar">
@@ -1003,6 +1339,431 @@ function dismissIntro(){
     document.getElementById('gBtn').classList.add('vis');
   },400);
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ══ FIREBASE AUTH & GALLERY ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Listen for auth state changes
+auth.onAuthStateChanged(user => {
+  currentUser = user;
+  updateUserUI();
+});
+
+function updateUserUI() {
+  const guestTag = document.getElementById('guestTag');
+  const userTag = document.getElementById('userTag');
+  const userName = document.getElementById('userName');
+  const userAvatar = document.getElementById('userAvatar');
+  
+  if (currentUser) {
+    // User is logged in - get username from Firestore
+    db.collection('users').doc(currentUser.uid).get().then(doc => {
+      const username = doc.exists ? doc.data().username : 'USER';
+      userName.textContent = username.toUpperCase();
+      userAvatar.textContent = username.charAt(0).toUpperCase();
+    });
+    guestTag.style.display = 'none';
+    userTag.style.display = 'flex';
+  } else {
+    // Guest mode
+    guestTag.style.display = 'block';
+    userTag.style.display = 'none';
+  }
+  closeUserDropdown();
+}
+
+// ── AUTH MODAL FUNCTIONS ──────────────────────────────────────────────────────
+function openAuthModal(type) {
+  closeUserDropdown();
+  document.getElementById(type + 'Modal').classList.add('open');
+  // Focus first input
+  setTimeout(() => {
+    const input = document.getElementById(type + 'Username');
+    if (input) input.focus();
+  }, 100);
+}
+
+function closeAuthModal(modalId) {
+  document.getElementById(modalId).classList.remove('open');
+  // Clear inputs and errors
+  const modal = document.getElementById(modalId);
+  modal.querySelectorAll('input').forEach(i => i.value = '');
+  modal.querySelectorAll('.auth-error').forEach(e => e.classList.remove('show'));
+}
+
+function authModalBg(event, modalId) {
+  if (event.target.classList.contains('auth-modal')) {
+    closeAuthModal(modalId);
+  }
+}
+
+function switchToSignup() {
+  closeAuthModal('loginModal');
+  setTimeout(() => openAuthModal('signup'), 200);
+}
+
+function switchToLogin() {
+  closeAuthModal('signupModal');
+  setTimeout(() => openAuthModal('login'), 200);
+}
+
+function showAuthError(modalId, message) {
+  const errorEl = document.getElementById(modalId.replace('Modal', '') + 'Error');
+  errorEl.textContent = message;
+  errorEl.classList.add('show');
+}
+
+function setAuthLoading(modalId, loading) {
+  const prefix = modalId.replace('Modal', '');
+  document.getElementById(prefix + 'Loading').classList.toggle('show', loading);
+  document.getElementById(prefix + 'Btn').style.display = loading ? 'none' : 'block';
+}
+
+// ── SIGNUP ────────────────────────────────────────────────────────────────────
+async function signupUser() {
+  const username = document.getElementById('signupUsername').value.trim();
+  const password = document.getElementById('signupPassword').value;
+  const confirm = document.getElementById('signupConfirm').value;
+  
+  // Validation
+  if (!username || username.length < 3) {
+    showAuthError('signupModal', 'Username must be at least 3 characters');
+    return;
+  }
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+    showAuthError('signupModal', 'Username can only contain letters, numbers, and underscores');
+    return;
+  }
+  if (password.length < 6) {
+    showAuthError('signupModal', 'Password must be at least 6 characters');
+    return;
+  }
+  if (password !== confirm) {
+    showAuthError('signupModal', 'Passwords do not match');
+    return;
+  }
+  
+  setAuthLoading('signupModal', true);
+  
+  try {
+    // Check if username is taken
+    const usernameDoc = await db.collection('usernames').doc(username.toLowerCase()).get();
+    if (usernameDoc.exists) {
+      showAuthError('signupModal', 'Username is already taken');
+      setAuthLoading('signupModal', false);
+      return;
+    }
+    
+    // Create user with email (using username@airdraw.app as fake email)
+    const fakeEmail = `${username.toLowerCase()}@airdraw.app`;
+    const userCredential = await auth.createUserWithEmailAndPassword(fakeEmail, password);
+    
+    // Store user data
+    const batch = db.batch();
+    batch.set(db.collection('users').doc(userCredential.user.uid), {
+      username: username,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    batch.set(db.collection('usernames').doc(username.toLowerCase()), {
+      uid: userCredential.user.uid
+    });
+    await batch.commit();
+    
+    closeAuthModal('signupModal');
+    toast('WELCOME, ' + username.toUpperCase() + '!');
+    
+  } catch (error) {
+    console.error('Signup error:', error);
+    let msg = 'Signup failed. Please try again.';
+    if (error.code === 'auth/email-already-in-use') {
+      msg = 'Username is already taken';
+    } else if (error.code === 'auth/weak-password') {
+      msg = 'Password is too weak';
+    }
+    showAuthError('signupModal', msg);
+  }
+  
+  setAuthLoading('signupModal', false);
+}
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+async function loginUser() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  
+  if (!username || !password) {
+    showAuthError('loginModal', 'Please enter username and password');
+    return;
+  }
+  
+  setAuthLoading('loginModal', true);
+  
+  try {
+    const fakeEmail = `${username.toLowerCase()}@airdraw.app`;
+    await auth.signInWithEmailAndPassword(fakeEmail, password);
+    
+    closeAuthModal('loginModal');
+    toast('WELCOME BACK, ' + username.toUpperCase() + '!');
+    
+  } catch (error) {
+    console.error('Login error:', error);
+    let msg = 'Invalid username or password';
+    if (error.code === 'auth/user-not-found') {
+      msg = 'User not found';
+    } else if (error.code === 'auth/wrong-password') {
+      msg = 'Incorrect password';
+    } else if (error.code === 'auth/too-many-requests') {
+      msg = 'Too many attempts. Try again later.';
+    }
+    showAuthError('loginModal', msg);
+  }
+  
+  setAuthLoading('loginModal', false);
+}
+
+// ── LOGOUT ────────────────────────────────────────────────────────────────────
+async function logoutUser() {
+  closeUserDropdown();
+  try {
+    await auth.signOut();
+    toast('LOGGED OUT');
+  } catch (error) {
+    console.error('Logout error:', error);
+    toast('LOGOUT FAILED');
+  }
+}
+
+// ── USER DROPDOWN ─────────────────────────────────────────────────────────────
+function toggleUserDropdown() {
+  document.getElementById('userDropdown').classList.toggle('open');
+}
+
+function closeUserDropdown() {
+  document.getElementById('userDropdown').classList.remove('open');
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  const dropdown = document.getElementById('userDropdown');
+  const userTag = document.getElementById('userTag');
+  if (!dropdown.contains(e.target) && !userTag.contains(e.target)) {
+    closeUserDropdown();
+  }
+});
+
+// ── SAVE TO CLOUD ─────────────────────────────────────────────────────────────
+function saveToCloud() {
+  closeUserDropdown();
+  
+  if (!currentUser) {
+    // Show login prompt for guests
+    document.getElementById('loginPrompt').classList.add('open');
+    return;
+  }
+  
+  if (strokes.length === 0) {
+    toast('NO DRAWING TO SAVE');
+    return;
+  }
+  
+  // Show save dialog
+  document.getElementById('saveDialog').classList.add('open');
+  document.getElementById('drawingName').value = 'Drawing ' + new Date().toLocaleDateString();
+  document.getElementById('drawingName').focus();
+  document.getElementById('drawingName').select();
+}
+
+function closeSaveDialog() {
+  document.getElementById('saveDialog').classList.remove('open');
+}
+
+function closeLoginPrompt() {
+  document.getElementById('loginPrompt').classList.remove('open');
+}
+
+function promptToLogin() {
+  closeLoginPrompt();
+  setTimeout(() => openAuthModal('login'), 200);
+}
+
+async function confirmSave() {
+  const name = document.getElementById('drawingName').value.trim() || 'Untitled';
+  
+  closeSaveDialog();
+  toast('SAVING...');
+  
+  try {
+    // Generate thumbnail
+    const thumbCanvas = document.createElement('canvas');
+    thumbCanvas.width = 320;
+    thumbCanvas.height = 200;
+    const tctx = thumbCanvas.getContext('2d');
+    tctx.fillStyle = '#080600';
+    tctx.fillRect(0, 0, 320, 200);
+    tctx.drawImage(dCvs, 0, 0, dCvs.width, dCvs.height, 0, 0, 320, 200);
+    const thumbnail = thumbCanvas.toDataURL('image/jpeg', 0.7);
+    
+    // Get username
+    const userDoc = await db.collection('users').doc(currentUser.uid).get();
+    const username = userDoc.exists ? userDoc.data().username : 'Unknown';
+    
+    // Save to Firestore
+    await db.collection('drawings').add({
+      userId: currentUser.uid,
+      username: username,
+      name: name,
+      strokes: JSON.stringify(strokes),
+      strokeCount: strokes.length,
+      pointCount: totalPts,
+      thumbnail: thumbnail,
+      canvasWidth: dCvs.width,
+      canvasHeight: dCvs.height,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    toast('SAVED TO CLOUD ✓');
+    
+  } catch (error) {
+    console.error('Save error:', error);
+    toast('SAVE FAILED');
+  }
+}
+
+// ── GALLERY ───────────────────────────────────────────────────────────────────
+async function openGallery() {
+  closeUserDropdown();
+  
+  if (!currentUser) {
+    document.getElementById('loginPrompt').classList.add('open');
+    return;
+  }
+  
+  document.getElementById('galleryModal').classList.add('open');
+  loadGallery();
+}
+
+function closeGallery() {
+  document.getElementById('galleryModal').classList.remove('open');
+}
+
+async function loadGallery() {
+  const grid = document.getElementById('galleryGrid');
+  grid.innerHTML = '<div class="auth-loading show"><div class="spinner"></div><span style="font-size:0.5rem;letter-spacing:2px;">LOADING...</span></div>';
+  
+  try {
+    const snapshot = await db.collection('drawings')
+      .where('userId', '==', currentUser.uid)
+      .orderBy('createdAt', 'desc')
+      .get();
+    
+    if (snapshot.empty) {
+      grid.innerHTML = `
+        <div class="gallery-empty">
+          <div class="gallery-empty-icon">🎨</div>
+          <div class="gallery-empty-text">NO DRAWINGS YET</div>
+          <div style="margin-top:8px;font-size:0.4rem;color:var(--dim);">Start drawing and save your work!</div>
+        </div>
+      `;
+      return;
+    }
+    
+    grid.innerHTML = '';
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const date = data.createdAt ? new Date(data.createdAt.toDate()).toLocaleDateString() : 'Unknown date';
+      
+      const item = document.createElement('div');
+      item.className = 'gallery-item';
+      item.innerHTML = `
+        <img src="${data.thumbnail}" class="gallery-thumb" alt="${data.name}">
+        <div class="gallery-info">
+          <div class="gallery-name">${escapeHtml(data.name)}</div>
+          <div class="gallery-date">${date} · ${data.strokeCount || 0} strokes</div>
+        </div>
+        <div class="gallery-actions">
+          <button class="gallery-action-btn" onclick="event.stopPropagation();loadDrawing('${doc.id}')" title="Load">↓</button>
+          <button class="gallery-action-btn delete" onclick="event.stopPropagation();deleteDrawing('${doc.id}')" title="Delete">✕</button>
+        </div>
+      `;
+      item.onclick = () => loadDrawing(doc.id);
+      grid.appendChild(item);
+    });
+    
+  } catch (error) {
+    console.error('Gallery load error:', error);
+    grid.innerHTML = '<div class="gallery-empty"><div class="gallery-empty-text">FAILED TO LOAD GALLERY</div></div>';
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+async function loadDrawing(drawingId) {
+  closeGallery();
+  toast('LOADING...');
+  
+  try {
+    const doc = await db.collection('drawings').doc(drawingId).get();
+    
+    if (!doc.exists) {
+      toast('DRAWING NOT FOUND');
+      return;
+    }
+    
+    const data = doc.data();
+    
+    // Parse and apply strokes
+    strokes = JSON.parse(data.strokes);
+    totalPts = data.pointCount || strokes.reduce((sum, s) => sum + s.pts.length, 0);
+    
+    // Update UI
+    document.getElementById('sStrokes').textContent = strokes.length;
+    document.getElementById('sPoints').textContent = totalPts;
+    
+    // Redraw
+    redrawAll();
+    
+    toast('LOADED: ' + data.name.toUpperCase());
+    
+  } catch (error) {
+    console.error('Load drawing error:', error);
+    toast('LOAD FAILED');
+  }
+}
+
+async function deleteDrawing(drawingId) {
+  if (!confirm('Delete this drawing? This cannot be undone.')) {
+    return;
+  }
+  
+  try {
+    await db.collection('drawings').doc(drawingId).delete();
+    toast('DELETED');
+    loadGallery(); // Refresh gallery
+  } catch (error) {
+    console.error('Delete error:', error);
+    toast('DELETE FAILED');
+  }
+}
+
+// Add keyboard support for auth forms
+document.getElementById('loginPassword').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') loginUser();
+});
+document.getElementById('loginUsername').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('loginPassword').focus();
+});
+document.getElementById('signupConfirm').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') signupUser();
+});
+document.getElementById('drawingName').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') confirmSave();
+});
 </script>
 
 
