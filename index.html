@@ -3,8 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AIR DRAW v1.2</title>
+<title>AIR DRAW v1.3</title>
 <link href="https://fonts.googleapis.com/css2?family=VT323&family=Space+Mono&display=swap" rel="stylesheet">
+
+<!-- TensorFlow.js for ML -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
 
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -653,6 +656,118 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
   font-size:0.5rem;letter-spacing:2px;color:rgba(200,168,75,0.7);
   text-align:center;margin-top:16px;line-height:1.8;
 }
+
+/* ── ML TRAINING UI ────────────────────────────────────────────────────────── */
+#mlTrainingModal {
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);
+  z-index:1200;align-items:center;justify-content:center;
+}
+#mlTrainingModal.show { display:flex; }
+.ml-panel {
+  background:linear-gradient(135deg,rgba(20,18,12,0.98),rgba(8,6,0,0.99));
+  border:1px solid var(--a);border-radius:6px;padding:30px 40px;max-width:600px;width:90%;
+  box-shadow:0 0 60px rgba(232,160,0,0.15),inset 0 0 80px rgba(0,0,0,0.5);
+  position:relative;
+}
+.ml-panel h2 {
+  font-family:'VT323',monospace;color:var(--a);font-size:2rem;margin:0 0 8px 0;
+  text-shadow:0 0 15px rgba(232,160,0,0.5);letter-spacing:4px;
+}
+.ml-panel .ml-sub {
+  font-family:'Space Mono',monospace;color:rgba(200,168,75,0.7);font-size:0.85rem;
+  margin-bottom:24px;
+}
+.ml-close {
+  position:absolute;top:15px;right:20px;background:none;border:none;
+  color:rgba(255,100,100,0.7);font-size:1.6rem;cursor:pointer;
+  transition:all 0.2s;font-family:'VT323',monospace;
+}
+.ml-close:hover { color:#ff6666;text-shadow:0 0 10px rgba(255,100,100,0.5); }
+.ml-gestures {
+  display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;
+}
+.ml-gesture-btn {
+  padding:16px 12px;background:rgba(232,160,0,0.05);border:1px solid rgba(232,160,0,0.3);
+  border-radius:4px;cursor:pointer;transition:all 0.25s;text-align:center;
+}
+.ml-gesture-btn:hover { background:rgba(232,160,0,0.12);border-color:var(--a); }
+.ml-gesture-btn.training { 
+  background:rgba(232,160,0,0.2);border-color:var(--a);
+  animation:mlPulse 1s ease-in-out infinite;
+}
+.ml-gesture-btn.trained { border-color:#4dff91;background:rgba(77,255,145,0.08); }
+.ml-gesture-btn .ge { font-size:2rem;display:block;margin-bottom:6px; }
+.ml-gesture-btn .gn {
+  font-family:'VT323',monospace;color:var(--a);font-size:1.1rem;letter-spacing:2px;
+}
+.ml-gesture-btn.trained .gn { color:#4dff91; }
+@keyframes mlPulse {
+  0%,100% { box-shadow:0 0 10px rgba(232,160,0,0.3); }
+  50% { box-shadow:0 0 25px rgba(232,160,0,0.6); }
+}
+.ml-status {
+  background:rgba(0,0,0,0.4);border:1px solid rgba(232,160,0,0.2);border-radius:4px;
+  padding:16px;margin-bottom:20px;font-family:'Space Mono',monospace;font-size:0.9rem;
+}
+.ml-status-label { color:rgba(200,168,75,0.7);margin-bottom:6px; }
+.ml-status-text { color:var(--a);font-size:1.1rem; }
+.ml-progress {
+  height:8px;background:rgba(232,160,0,0.15);border-radius:4px;overflow:hidden;margin-top:10px;
+}
+.ml-progress-bar {
+  height:100%;background:linear-gradient(90deg,var(--a),#ffd700);width:0%;
+  transition:width 0.3s;border-radius:4px;
+}
+.ml-actions { display:flex;gap:12px;margin-top:20px; }
+.ml-btn {
+  flex:1;padding:14px 20px;background:transparent;border:1px solid var(--a);
+  color:var(--a);font-family:'VT323',monospace;font-size:1.1rem;letter-spacing:3px;
+  cursor:pointer;border-radius:3px;transition:all 0.25s;
+}
+.ml-btn:hover { background:var(--a3);box-shadow:0 0 20px rgba(232,160,0,0.2); }
+.ml-btn:disabled { opacity:0.4;cursor:not-allowed; }
+.ml-btn.danger { border-color:#ff6666;color:#ff6666; }
+.ml-btn.danger:hover { background:rgba(255,100,100,0.1); }
+.ml-btn.success { border-color:#4dff91;color:#4dff91; }
+.ml-btn.success:hover { background:rgba(77,255,145,0.1); }
+.ml-confidence {
+  display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;
+}
+.ml-conf-item {
+  background:rgba(0,0,0,0.3);border:1px solid rgba(232,160,0,0.2);
+  border-radius:3px;padding:8px 12px;font-family:'Space Mono',monospace;font-size:0.8rem;
+}
+.ml-conf-item .name { color:rgba(200,168,75,0.7);margin-right:6px; }
+.ml-conf-item .val { color:var(--a); }
+#mlTrainBtn {
+  position:fixed;bottom:20px;left:20px;z-index:700;
+  background:linear-gradient(135deg,rgba(20,18,12,0.95),rgba(8,6,0,0.98));
+  border:1px solid rgba(232,160,0,0.5);border-radius:4px;padding:10px 16px;
+  cursor:pointer;transition:all 0.25s;display:none;
+}
+#mlTrainBtn.show { display:flex;align-items:center;gap:8px; }
+#mlTrainBtn:hover { border-color:var(--a);box-shadow:0 0 20px rgba(232,160,0,0.2); }
+#mlTrainBtn .icon { font-size:1.4rem; }
+#mlTrainBtn .label {
+  font-family:'VT323',monospace;color:var(--a);font-size:1rem;letter-spacing:2px;
+}
+.ml-indicator {
+  position:fixed;top:80px;right:20px;z-index:750;
+  background:rgba(0,0,0,0.8);border:1px solid rgba(77,255,145,0.5);
+  border-radius:4px;padding:8px 14px;display:none;
+}
+.ml-indicator.active { display:flex;align-items:center;gap:8px; }
+.ml-indicator .dot {
+  width:8px;height:8px;border-radius:50%;background:#4dff91;
+  animation:mlDotPulse 1.5s ease-in-out infinite;
+}
+@keyframes mlDotPulse {
+  0%,100% { opacity:1; }
+  50% { opacity:0.4; }
+}
+.ml-indicator .text {
+  font-family:'Space Mono',monospace;color:#4dff91;font-size:0.8rem;
+}
 </style>
 </head>
 <body>
@@ -660,7 +775,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
 <!-- INITIAL AUTH SCREEN (shown first) -->
 <div id="initialAuthScreen" class="show">
   <div class="ias-logo">AIR DRAW</div>
-  <div class="ias-sub">GESTURE · DRAW · V1.2</div>
+  <div class="ias-sub">GESTURE · DRAW · V1.3</div>
   <div class="ias-title">CHOOSE YOUR MODE</div>
   <div class="ias-options">
     <button class="ias-btn" onclick="chooseLogin()">LOGIN</button>
@@ -676,7 +791,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
 <!-- STARTUP OVERLAY -->
 <div id="overlay">
   <div class="ov-logo">AIR DRAW</div>
-  <div class="ov-sub">GESTURE · DRAW · V1.2</div>
+  <div class="ov-sub">GESTURE · DRAW · V1.3</div>
   <div class="ov-warn">
     🦁 <b>BRAVE USERS:</b> Click the <b>Shields icon</b> in the address bar<br>
     and turn shields <b>OFF</b> for this page before activating.
@@ -968,6 +1083,48 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
   </div>
 </div>
 
+<!-- ML TRAINING MODAL -->
+<div id="mlTrainingModal">
+  <div class="ml-panel">
+    <button class="ml-close" onclick="closeMLTraining()">✕</button>
+    <h2>🧠 GESTURE TRAINING</h2>
+    <div class="ml-sub">Train your personalized gesture recognition model</div>
+    
+    <div class="ml-status">
+      <div class="ml-status-label">STATUS</div>
+      <div class="ml-status-text" id="mlStatusText">Ready to train. Select a gesture below.</div>
+      <div class="ml-progress">
+        <div class="ml-progress-bar" id="mlProgressBar"></div>
+      </div>
+    </div>
+    
+    <div class="ml-gestures" id="mlGestureGrid">
+      <!-- Populated by JS -->
+    </div>
+    
+    <div class="ml-confidence" id="mlConfidenceDisplay">
+      <!-- Shows live confidence scores when model is active -->
+    </div>
+    
+    <div class="ml-actions">
+      <button class="ml-btn danger" id="mlResetBtn" onclick="resetMLModel()">RESET MODEL</button>
+      <button class="ml-btn success" id="mlSaveBtn" onclick="saveMLModel()" disabled>SAVE TO CLOUD</button>
+    </div>
+  </div>
+</div>
+
+<!-- ML TRAIN BUTTON (shown after app starts) -->
+<div id="mlTrainBtn" onclick="openMLTraining()">
+  <span class="icon">🧠</span>
+  <span class="label">TRAIN</span>
+</div>
+
+<!-- ML ACTIVE INDICATOR -->
+<div class="ml-indicator" id="mlIndicator">
+  <div class="dot"></div>
+  <span class="text">ML ACTIVE</span>
+</div>
+
 <!-- STATUS BAR -->
 <div id="statusbar">
   <div class="gstrip" id="gstrip"></div>
@@ -992,6 +1149,22 @@ const GESTURES = [
   { id:'hang',  emoji:'🤙', name:'CLEAR ALL', desc:'Hang loose',        enabled:true },
 ];
 const gOn = id => GESTURES.find(g=>g.id===id)?.enabled ?? true;
+
+// ── ML PERSONALIZATION ────────────────────────────────────────────────────────
+let userModel = null;           // TensorFlow.js model for personalized recognition
+let isTrainingMode = false;     // True when user is training gestures
+let trainingGesture = null;     // Current gesture being trained
+let trainingData = [];          // Collected training samples
+let gestureHistory = [];        // Rolling history for stability filtering
+const GESTURE_HISTORY_SIZE = 5; // Number of frames to smooth over
+const STABILITY_THRESHOLD = 3;  // Min same-gesture frames to trigger action
+let lastStableGesture = null;   // Last confirmed stable gesture
+let gestureConfidences = {};    // ML confidence per gesture
+
+// Gesture labels for ML model
+const GESTURE_LABELS = ['draw', 'pinch', 'palm', 'peace', 'fist', 'hang', 'none'];
+const NUM_LANDMARKS = 21;       // MediaPipe hand landmarks
+const FEATURES_PER_LANDMARK = 3; // x, y, z
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let strokes=[],curStroke=[],totalPts=0;
@@ -1240,6 +1413,412 @@ function held(id,active,ms=280){
   return(Date.now()-holdStart[id])>=ms;
 }
 
+// ── ML PERSONALIZATION FUNCTIONS ──────────────────────────────────────────────
+
+// Extract features from hand landmarks for ML
+function extractFeatures(landmarks) {
+  const features = [];
+  // Get wrist as reference point for normalization
+  const wrist = landmarks[0];
+  
+  for(let i = 0; i < landmarks.length; i++) {
+    const lm = landmarks[i];
+    // Normalize relative to wrist
+    features.push(lm.x - wrist.x);
+    features.push(lm.y - wrist.y);
+    features.push(lm.z - wrist.z);
+  }
+  
+  // Add derived features: finger distances, angles
+  // Thumb tip to index tip
+  features.push(dist3D(landmarks[4], landmarks[8]));
+  // Index tip to middle tip
+  features.push(dist3D(landmarks[8], landmarks[12]));
+  // Palm width (index MCP to pinky MCP)
+  features.push(dist3D(landmarks[5], landmarks[17]));
+  // Finger curl indicators
+  for(const tipIdx of [8, 12, 16, 20]) {
+    const mcpIdx = tipIdx - 3;
+    features.push(landmarks[tipIdx].y - landmarks[mcpIdx].y);
+  }
+  
+  return features;
+}
+
+function dist3D(a, b) {
+  return Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2 + (a.z-b.z)**2);
+}
+
+// Create the neural network model
+async function createMLModel() {
+  const inputSize = NUM_LANDMARKS * FEATURES_PER_LANDMARK + 7; // landmarks + derived features
+  
+  const model = tf.sequential({
+    layers: [
+      tf.layers.dense({ inputShape: [inputSize], units: 64, activation: 'relu' }),
+      tf.layers.dropout({ rate: 0.2 }),
+      tf.layers.dense({ units: 32, activation: 'relu' }),
+      tf.layers.dropout({ rate: 0.2 }),
+      tf.layers.dense({ units: GESTURE_LABELS.length, activation: 'softmax' })
+    ]
+  });
+  
+  model.compile({
+    optimizer: tf.train.adam(0.001),
+    loss: 'categoricalCrossentropy',
+    metrics: ['accuracy']
+  });
+  
+  return model;
+}
+
+// Open ML training modal
+function openMLTraining() {
+  const modal = document.getElementById('mlTrainingModal');
+  modal.classList.add('show');
+  populateMLGestureGrid();
+  updateMLStatus('Ready to train. Select a gesture and hold it for 3 seconds.', 0);
+}
+
+// Close ML training modal
+function closeMLTraining() {
+  const modal = document.getElementById('mlTrainingModal');
+  modal.classList.remove('show');
+  isTrainingMode = false;
+  trainingGesture = null;
+}
+
+// Populate gesture grid in training modal
+function populateMLGestureGrid() {
+  const grid = document.getElementById('mlGestureGrid');
+  const gestureEmojis = {
+    'draw': '☝️', 'pinch': '🤏', 'palm': '✋',
+    'peace': '✌️', 'fist': '✊', 'hang': '🤙'
+  };
+  
+  grid.innerHTML = GESTURE_LABELS.filter(g => g !== 'none').map(gesture => {
+    const samples = trainingData.filter(d => d.label === gesture).length;
+    const trained = samples >= 30;
+    return `
+      <div class="ml-gesture-btn ${trained ? 'trained' : ''}" 
+           id="mlg-${gesture}"
+           onclick="startTraining('${gesture}')">
+        <span class="ge">${gestureEmojis[gesture]}</span>
+        <span class="gn">${gesture.toUpperCase()}</span>
+        <span style="font-size:0.7rem;color:rgba(200,168,75,0.6)">${samples} samples</span>
+      </div>
+    `;
+  }).join('');
+}
+
+// Start training a specific gesture
+function startTraining(gesture) {
+  if(isTrainingMode && trainingGesture === gesture) {
+    // Stop training this gesture
+    isTrainingMode = false;
+    trainingGesture = null;
+    document.querySelectorAll('.ml-gesture-btn').forEach(btn => btn.classList.remove('training'));
+    updateMLStatus('Training paused. Select a gesture to continue.', 0);
+    return;
+  }
+  
+  isTrainingMode = true;
+  trainingGesture = gesture;
+  
+  document.querySelectorAll('.ml-gesture-btn').forEach(btn => btn.classList.remove('training'));
+  document.getElementById(`mlg-${gesture}`)?.classList.add('training');
+  
+  updateMLStatus(`TRAINING: Show your ${gesture.toUpperCase()} gesture. Hold steady!`, 0);
+  toast(`Show ${gesture.toUpperCase()} gesture`);
+}
+
+// Collect training sample (called from onResults when training)
+function collectTrainingSample(landmarks) {
+  if(!isTrainingMode || !trainingGesture) return;
+  
+  const features = extractFeatures(landmarks);
+  trainingData.push({
+    features: features,
+    label: trainingGesture
+  });
+  
+  const samples = trainingData.filter(d => d.label === trainingGesture).length;
+  const progress = Math.min(samples / 50 * 100, 100);
+  
+  updateMLStatus(
+    `TRAINING ${trainingGesture.toUpperCase()}: ${samples}/50 samples collected`,
+    progress
+  );
+  
+  // Update button state
+  if(samples >= 30) {
+    document.getElementById(`mlg-${trainingGesture}`)?.classList.add('trained');
+  }
+  
+  // Auto-stop at 50 samples
+  if(samples >= 50) {
+    isTrainingMode = false;
+    const prevGesture = trainingGesture;
+    trainingGesture = null;
+    document.querySelectorAll('.ml-gesture-btn').forEach(btn => btn.classList.remove('training'));
+    updateMLStatus(`${prevGesture.toUpperCase()} training complete! Train another or save model.`, 100);
+    checkCanSaveModel();
+    toast(`${prevGesture} training done!`);
+  }
+  
+  populateMLGestureGrid();
+}
+
+// Update ML status display
+function updateMLStatus(text, progress) {
+  document.getElementById('mlStatusText').textContent = text;
+  document.getElementById('mlProgressBar').style.width = progress + '%';
+}
+
+// Check if enough data to save model
+function checkCanSaveModel() {
+  const gesturesWithEnoughData = new Set(
+    trainingData.filter((d, i, arr) => 
+      arr.filter(x => x.label === d.label).length >= 30
+    ).map(d => d.label)
+  );
+  
+  const canSave = gesturesWithEnoughData.size >= 3;
+  document.getElementById('mlSaveBtn').disabled = !canSave;
+}
+
+// Train the model with collected data
+async function trainModel() {
+  if(trainingData.length < 50) {
+    toast('Need more training data');
+    return null;
+  }
+  
+  updateMLStatus('Training model... Please wait.', 0);
+  
+  // Prepare data
+  const xs = tf.tensor2d(trainingData.map(d => d.features));
+  const labelIndices = trainingData.map(d => GESTURE_LABELS.indexOf(d.label));
+  const ys = tf.oneHot(tf.tensor1d(labelIndices, 'int32'), GESTURE_LABELS.length);
+  
+  // Create and train model
+  userModel = await createMLModel();
+  
+  await userModel.fit(xs, ys, {
+    epochs: 50,
+    batchSize: 16,
+    validationSplit: 0.2,
+    callbacks: {
+      onEpochEnd: (epoch, logs) => {
+        const progress = ((epoch + 1) / 50) * 100;
+        updateMLStatus(
+          `Training: Epoch ${epoch + 1}/50 - Accuracy: ${(logs.acc * 100).toFixed(1)}%`,
+          progress
+        );
+      }
+    }
+  });
+  
+  xs.dispose();
+  ys.dispose();
+  
+  updateMLStatus('Model trained! ML recognition now active.', 100);
+  document.getElementById('mlIndicator').classList.add('active');
+  
+  return userModel;
+}
+
+// Save model to Firebase
+async function saveMLModel() {
+  if(!currentUser) {
+    showLoginPrompt();
+    return;
+  }
+  
+  updateMLStatus('Training model before saving...', 0);
+  
+  try {
+    await trainModel();
+    
+    if(!userModel) {
+      toast('Training failed');
+      return;
+    }
+    
+    // Serialize model to JSON
+    const modelJSON = await userModel.toJSON();
+    const weightsData = [];
+    
+    for(const weight of userModel.getWeights()) {
+      weightsData.push({
+        name: weight.name,
+        shape: weight.shape,
+        data: Array.from(await weight.data())
+      });
+    }
+    
+    // Save to Firestore
+    await db.collection('userModels').doc(currentUser.uid).set({
+      modelConfig: JSON.stringify(modelJSON),
+      weights: JSON.stringify(weightsData),
+      trainingData: JSON.stringify(trainingData),
+      gestureLabels: GESTURE_LABELS,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    toast('Model saved to cloud!');
+    updateMLStatus('Model saved successfully!', 100);
+    
+  } catch(err) {
+    console.error('Save model error:', err);
+    toast('Failed to save model');
+  }
+}
+
+// Load model from Firebase
+async function loadMLModel() {
+  if(!currentUser) return false;
+  
+  try {
+    const doc = await db.collection('userModels').doc(currentUser.uid).get();
+    
+    if(!doc.exists) {
+      console.log('No saved model found');
+      return false;
+    }
+    
+    const data = doc.data();
+    const modelConfig = JSON.parse(data.modelConfig);
+    const weightsData = JSON.parse(data.weights);
+    trainingData = JSON.parse(data.trainingData || '[]');
+    
+    // Recreate model
+    userModel = await createMLModel();
+    
+    // Load weights
+    const weightTensors = weightsData.map(w => 
+      tf.tensor(w.data, w.shape)
+    );
+    userModel.setWeights(weightTensors);
+    
+    document.getElementById('mlIndicator').classList.add('active');
+    console.log('ML model loaded from cloud');
+    toast('Personalized model loaded!');
+    
+    return true;
+    
+  } catch(err) {
+    console.error('Load model error:', err);
+    return false;
+  }
+}
+
+// Reset ML model
+function resetMLModel() {
+  if(!confirm('Reset all training data and model?')) return;
+  
+  userModel = null;
+  trainingData = [];
+  gestureHistory = [];
+  
+  document.getElementById('mlIndicator').classList.remove('active');
+  document.getElementById('mlSaveBtn').disabled = true;
+  populateMLGestureGrid();
+  updateMLStatus('Model reset. Start training again.', 0);
+  toast('ML model reset');
+  
+  // Delete from cloud if logged in
+  if(currentUser) {
+    db.collection('userModels').doc(currentUser.uid).delete().catch(() => {});
+  }
+}
+
+// Predict gesture using ML model
+function predictGestureML(landmarks) {
+  if(!userModel) return null;
+  
+  try {
+    const features = extractFeatures(landmarks);
+    const input = tf.tensor2d([features]);
+    const prediction = userModel.predict(input);
+    const probs = prediction.dataSync();
+    input.dispose();
+    prediction.dispose();
+    
+    // Update confidence display
+    gestureConfidences = {};
+    GESTURE_LABELS.forEach((label, i) => {
+      gestureConfidences[label] = probs[i];
+    });
+    
+    // Get highest confidence prediction
+    let maxProb = 0;
+    let predicted = 'none';
+    for(let i = 0; i < probs.length; i++) {
+      if(probs[i] > maxProb) {
+        maxProb = probs[i];
+        predicted = GESTURE_LABELS[i];
+      }
+    }
+    
+    // Only return if confidence is high enough
+    return maxProb > 0.6 ? { gesture: predicted, confidence: maxProb } : null;
+    
+  } catch(err) {
+    console.error('ML predict error:', err);
+    return null;
+  }
+}
+
+// Add gesture to history for stability filtering
+function updateGestureHistory(gesture) {
+  gestureHistory.push(gesture);
+  if(gestureHistory.length > GESTURE_HISTORY_SIZE) {
+    gestureHistory.shift();
+  }
+}
+
+// Get stable gesture (majority vote from history)
+function getStableGesture() {
+  if(gestureHistory.length < STABILITY_THRESHOLD) return null;
+  
+  const counts = {};
+  for(const g of gestureHistory) {
+    counts[g] = (counts[g] || 0) + 1;
+  }
+  
+  let maxCount = 0;
+  let stableGesture = null;
+  for(const [gesture, count] of Object.entries(counts)) {
+    if(count >= STABILITY_THRESHOLD && count > maxCount) {
+      maxCount = count;
+      stableGesture = gesture;
+    }
+  }
+  
+  return stableGesture;
+}
+
+// Update ML confidence display in training modal
+function updateMLConfidenceDisplay() {
+  if(!document.getElementById('mlTrainingModal').classList.contains('show')) return;
+  
+  const container = document.getElementById('mlConfidenceDisplay');
+  if(Object.keys(gestureConfidences).length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  container.innerHTML = GESTURE_LABELS.filter(g => g !== 'none').map(label => {
+    const conf = (gestureConfidences[label] || 0) * 100;
+    const color = conf > 60 ? '#4dff91' : conf > 30 ? 'var(--a)' : 'rgba(200,168,75,0.5)';
+    return `<div class="ml-conf-item">
+      <span class="name">${label}:</span>
+      <span class="val" style="color:${color}">${conf.toFixed(0)}%</span>
+    </div>`;
+  }).join('');
+}
+
 // ── MEDIAPIPE ─────────────────────────────────────────────────────────────────
 let handsModel=null,camUtil=null;
 
@@ -1282,7 +1861,58 @@ function onResults(results){
   document.getElementById('dbConfBar').style.width=(conf*100)+'%';
   if(conf<confThreshold){drawOverlay(lm,false,false,false);return;}
 
-  const{pinch,openPalm,peace,fist,hang,pinchDist,fingersUp}=detectGesture(lm);
+  // Collect training data if in training mode
+  if(isTrainingMode && trainingGesture) {
+    collectTrainingSample(lm);
+  }
+
+  // Get rule-based gesture detection
+  let{pinch,openPalm,peace,fist,hang,pinchDist,fingersUp}=detectGesture(lm);
+  
+  // If ML model is active, use it for gesture prediction with stability filtering
+  if(userModel && !isTrainingMode) {
+    const mlPrediction = predictGestureML(lm);
+    updateMLConfidenceDisplay();
+    
+    if(mlPrediction && mlPrediction.confidence > 0.7) {
+      // Map ML prediction to gesture flags
+      const mlGesture = mlPrediction.gesture;
+      updateGestureHistory(mlGesture);
+      
+      const stableGesture = getStableGesture();
+      
+      if(stableGesture && stableGesture !== 'none') {
+        // Override rule-based detection with ML stable gesture
+        pinch = (stableGesture === 'pinch');
+        openPalm = (stableGesture === 'palm');
+        peace = (stableGesture === 'peace');
+        fist = (stableGesture === 'fist');
+        hang = (stableGesture === 'hang');
+        
+        // Only change if stable gesture is different from last
+        if(stableGesture !== lastStableGesture) {
+          lastStableGesture = stableGesture;
+        }
+      }
+    }
+  } else {
+    // Stability filtering for rule-based detection (to prevent random switches)
+    const currentGesture = fist ? 'fist' : hang ? 'hang' : peace ? 'peace' : 
+                           openPalm ? 'palm' : pinch ? 'pinch' : 
+                           (fingersUp === 1) ? 'draw' : 'none';
+    updateGestureHistory(currentGesture);
+    
+    const stableGesture = getStableGesture();
+    if(stableGesture && stableGesture !== currentGesture) {
+      // Revert to stable gesture to prevent flickering
+      pinch = (stableGesture === 'pinch');
+      openPalm = (stableGesture === 'palm');
+      peace = (stableGesture === 'peace');
+      fist = (stableGesture === 'fist');
+      hang = (stableGesture === 'hang');
+    }
+  }
+  
   document.getElementById('dbGesture').textContent=fist?'FIST':hang?'HANG':peace?'PEACE':openPalm?'PALM':pinch?'PINCH':'POINT';
   document.getElementById('dbPinch').textContent=pinchDist.toFixed(3);
   document.getElementById('dbFingers').textContent=fingersUp+'/4';
@@ -1513,6 +2143,16 @@ function dismissIntro(){
     document.getElementById('toolstrip').classList.add('vis');
     document.getElementById('ptoggle').classList.add('vis');
     document.getElementById('gBtn').classList.add('vis');
+    document.getElementById('mlTrainBtn').classList.add('show');
+    
+    // Try to load user's ML model if logged in
+    if(currentUser) {
+      loadMLModel().then(loaded => {
+        if(loaded) {
+          console.log('Personalized ML model active');
+        }
+      });
+    }
   },400);
 }
 
@@ -1552,6 +2192,15 @@ function chooseGuest() {
 auth.onAuthStateChanged(user => {
   currentUser = user;
   updateUserUI();
+  
+  // Load ML model when user logs in
+  if(user && document.getElementById('mlTrainBtn').classList.contains('show')) {
+    loadMLModel().then(loaded => {
+      if(loaded) {
+        toast('ML model loaded!');
+      }
+    });
+  }
 });
 
 function updateUserUI() {
