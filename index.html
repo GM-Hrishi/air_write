@@ -1,10 +1,35 @@
 <!DOCTYPE html>
-<!-- saved from url=(0055)file:///C:/Users/G%20M%20HRISHI/Downloads/index_14.html -->
-<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-
+<html lang="en">
+<head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AIR DRAW v1.2</title>
-<link href="./index_files/css2" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Space+Mono&display=swap" rel="stylesheet">
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+// Firebase Configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyBQU2Kvo4MdIvzuo6Ug3uAfrQdvLBM_qho",
+  authDomain: "air-write.firebaseapp.com",
+  projectId: "air-write",
+  storageBucket: "air-write.firebasestorage.app",
+  messagingSenderId: "804730160988",
+  appId: "1:804730160988:web:4bce8beaefbf10a0f26399"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// Auth state
+let currentUser = null;
+</script>
 
 <script>
 function loadScript(url) {
@@ -39,7 +64,7 @@ window._mpReady = (async () => {
     if (!ok) throw new Error('All CDNs failed for ' + lib.name);
   }
 })();
-</script><script src="./index_files/hands.js.download" crossorigin="anonymous"></script>
+</script>
 
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -72,9 +97,21 @@ body::after {
 @keyframes scan{0%{background-position:0 0}100%{background-position:0 400px}}
 
 /* canvas */
-#video { position:fixed;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:0.10;z-index:0; }
+#video { position:fixed;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:0.35;z-index:0; }
 #drawCanvas { position:fixed;inset:0;width:100%;height:100%;z-index:1; }
 #overlayCanvas { position:fixed;inset:0;width:100%;height:100%;z-index:2;pointer-events:none; }
+
+/* eraser hitbox */
+#eraserBox {
+  position:fixed;
+  border:3px solid rgba(255,255,255,0.8);
+  background:rgba(255,255,255,0.05);
+  pointer-events:none;
+  z-index:3;
+  display:none;
+  box-shadow:0 0 15px rgba(255,255,255,0.3), inset 0 0 15px rgba(255,255,255,0.1);
+}
+#eraserBox.active { display:block; }
 
 /* corners */
 .corner { position:fixed;width:24px;height:24px;z-index:200;pointer-events:none;opacity:0.3; }
@@ -88,15 +125,15 @@ body::after {
 
 /* topbar */
 #topbar {
-  position:fixed;top:0;left:0;right:0;height:42px;
+  position:fixed;top:0;left:0;right:0;height:48px;
   display:flex;align-items:center;justify-content:space-between;
   padding:0 48px;z-index:500;pointer-events:none;
   background:linear-gradient(to bottom,rgba(8,6,0,0.92),transparent);
 }
-.logo { font-family:'VT323',monospace;font-size:1.4rem;letter-spacing:9px;color:var(--a);text-shadow:0 0 18px rgba(232,160,0,0.5); }
-.sysstatus { display:flex;gap:18px;align-items:center;font-size:0.5rem;letter-spacing:2px;color:var(--dim); }
-.sig { display:flex;align-items:center;gap:5px; }
-.sd { width:5px;height:5px;border-radius:50%;background:#1a1500;border:1px solid rgba(232,160,0,0.15);transition:all 0.4s; }
+.logo { font-family:'VT323',monospace;font-size:1.6rem;letter-spacing:9px;color:var(--a);text-shadow:0 0 18px rgba(232,160,0,0.5); }
+.sysstatus { display:flex;gap:18px;align-items:center;font-size:0.62rem;letter-spacing:2px;color:var(--dim); }
+.sig { display:flex;align-items:center;gap:6px; }
+.sd { width:6px;height:6px;border-radius:50%;background:#1a1500;border:1px solid rgba(232,160,0,0.15);transition:all 0.4s; }
 .sd.on   { background:var(--g);box-shadow:0 0 6px var(--g);border-color:var(--g);animation:pl 2s infinite; }
 .sd.draw { background:var(--a);box-shadow:0 0 6px var(--a);border-color:var(--a);animation:pl 0.5s infinite; }
 .sd.warn { background:var(--r);box-shadow:0 0 6px var(--r);border-color:var(--r); }
@@ -105,7 +142,7 @@ body::after {
 /* timecode */
 #tc {
   position:fixed;bottom:46px;left:48px;
-  font-family:'VT323',monospace;font-size:0.85rem;letter-spacing:3px;
+  font-family:'VT323',monospace;font-size:1.1rem;letter-spacing:3px;
   color:var(--a2);z-index:500;pointer-events:none;
 }
 
@@ -124,7 +161,7 @@ body::after {
 }
 .tp:hover { border-color:var(--a);background:var(--a3); }
 .tp.act { border-color:var(--a);background:rgba(232,160,0,0.1);box-shadow:0 0 12px rgba(232,160,0,0.15); }
-.tp-lbl { font-size:0.35rem;letter-spacing:2px;color:var(--dim);writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg);text-transform:uppercase; }
+.tp-lbl { font-size:0.46rem;letter-spacing:2px;color:var(--dim);writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg);text-transform:uppercase; }
 .tp-sw { width:9px;height:9px;border-radius:1px;border:1px solid rgba(255,255,255,0.15); }
 .tp-dot { border-radius:50%;background:var(--a); }
 
@@ -133,7 +170,7 @@ body::after {
   position:fixed;right:16px;top:50%;transform:translateY(-50%);
   width:26px;padding:9px 5px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-  z-index:700;cursor:pointer;
+  z-index:800;cursor:pointer;
   background:rgba(8,6,0,0.75);border:1px solid var(--ab);border-radius:2px;
   transition:all 0.18s;opacity:0;
 }
@@ -145,7 +182,7 @@ body::after {
 #fpanel {
   position:fixed;right:-250px;top:0;bottom:0;width:232px;
   background:rgba(6,5,0,0.96);border-left:1px solid var(--ab);
-  backdrop-filter:blur(16px);z-index:600;
+  backdrop-filter:blur(16px);z-index:700;
   transition:right 0.32s cubic-bezier(0.22,1,0.36,1);
   overflow-y:auto;overflow-x:hidden;padding:50px 0 36px;
 }
@@ -153,8 +190,18 @@ body::after {
 #fpanel::-webkit-scrollbar{width:2px}
 #fpanel::-webkit-scrollbar-thumb{background:var(--ab)}
 
+/* panel close button */
+#panelClose {
+  position:absolute;top:14px;right:14px;
+  width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  background:transparent;border:1px solid var(--ab);border-radius:2px;
+  color:var(--dim);font-size:1.1rem;cursor:pointer;
+  transition:all 0.18s;line-height:1;padding:0;
+}
+#panelClose:hover { border-color:var(--a);color:var(--a);background:var(--a3); }
+
 .fp-s { border-bottom:1px solid var(--ab);padding:13px 15px; }
-.fp-t { font-family:'VT323',monospace;font-size:0.72rem;letter-spacing:4px;color:var(--dim);margin-bottom:9px; }
+.fp-t { font-family:'VT323',monospace;font-size:0.82rem;letter-spacing:4px;color:var(--dim);margin-bottom:9px; }
 .fp-colors { display:grid;grid-template-columns:repeat(3,1fr);gap:4px; }
 .sw { aspect-ratio:1;border-radius:2px;cursor:pointer;border:1px solid transparent;transition:all 0.15s; }
 .sw:hover { filter:brightness(1.3);transform:scale(1.06); }
@@ -165,33 +212,33 @@ body::after {
 .bb.sel { border-color:var(--a);background:var(--a3); }
 .bdot { border-radius:50%;background:var(--a); }
 .fp-row { display:flex;justify-content:space-between;align-items:center;margin-bottom:4px; }
-.fp-lbl { font-size:0.45rem;letter-spacing:1.5px;color:var(--dim); }
-.fp-val { font-family:'VT323',monospace;font-size:0.72rem;letter-spacing:1px;color:var(--a); }
+.fp-lbl { font-size:0.7rem;letter-spacing:1.5px;color:var(--dim); }
+.fp-val { font-family:'VT323',monospace;font-size:1.07rem;letter-spacing:1px;color:var(--a); }
 input[type=range] { width:100%;height:2px;-webkit-appearance:none;background:var(--ab);border-radius:1px;outline:none;margin-bottom:7px; }
 input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;height:9px;border-radius:1px;background:var(--a);cursor:pointer;box-shadow:0 0 5px var(--a); }
-.fpbtn { width:100%;padding:7px;background:transparent;border:1px solid var(--ab);color:var(--txt);font-family:'Space Mono',monospace;font-size:0.45rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:2px;margin-bottom:4px;transition:all 0.15s; }
+.fpbtn { width:100%;padding:9px;background:transparent;border:1px solid var(--ab);color:var(--txt);font-family:'Space Mono',monospace;font-size:0.7rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:2px;margin-bottom:4px;transition:all 0.15s; }
 .fpbtn:hover { background:var(--a3);border-color:var(--a);color:var(--a); }
 .fpbtn:last-child{margin-bottom:0}
 .fpbtn.red { border-color:rgba(255,68,68,0.2);color:rgba(255,100,100,0.6); }
 .fpbtn.red:hover { background:rgba(255,68,68,0.07);border-color:var(--r);color:var(--r); }
 .fp-stat { display:flex;justify-content:space-between;margin-bottom:3px; }
-.fp-sk { font-size:0.43rem;color:var(--dim);letter-spacing:1px; }
-.fp-sv { font-family:'VT323',monospace;font-size:0.65rem;letter-spacing:1px;color:var(--a); }
-#dbpanel { font-size:0.45rem;line-height:1.9;color:rgba(200,168,75,0.5); }
+.fp-sk { font-size:0.56rem;color:var(--dim);letter-spacing:1px; }
+.fp-sv { font-family:'VT323',monospace;font-size:0.85rem;letter-spacing:1px;color:var(--a); }
+#dbpanel { font-size:0.59rem;line-height:1.9;color:rgba(200,168,75,0.5); }
 .drow { display:flex;justify-content:space-between; }
-.dval { font-family:'VT323',monospace;font-size:0.65rem;color:var(--a); }
+.dval { font-family:'VT323',monospace;font-size:0.85rem;color:var(--a); }
 .dbar { height:1px;background:var(--ab);margin:3px 0 5px;overflow:hidden; }
 .dfill { height:100%;background:var(--a);transition:width 0.2s; }
-.dtip { font-size:0.4rem;color:var(--dim);line-height:1.7;margin-top:6px; }
+.dtip { font-size:0.52rem;color:var(--dim);line-height:1.7;margin-top:6px; }
 
 /* gesture modal btn */
 #gBtn {
-  position:fixed;bottom:18px;right:18px;
-  padding:7px 13px;background:rgba(8,6,0,0.85);
+  position:fixed;top:70px;right:18px;
+  padding:9px 15px;background:rgba(8,6,0,0.85);
   border:1px solid var(--ab);border-radius:2px;
   color:var(--dim);font-family:'Space Mono',monospace;
-  font-size:0.42rem;letter-spacing:2px;cursor:pointer;
-  z-index:700;transition:all 0.18s;opacity:0;
+  font-size:0.7rem;letter-spacing:2px;cursor:pointer;
+  z-index:800;transition:all 0.18s;opacity:0;
 }
 #gBtn.vis { opacity:1; }
 #gBtn:hover { border-color:var(--a);color:var(--a);background:var(--a3); }
@@ -210,7 +257,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
   box-shadow:0 0 60px rgba(0,0,0,0.9);
 }
 .gm-title { font-family:'VT323',monospace;font-size:1.1rem;letter-spacing:6px;color:var(--a);margin-bottom:3px; }
-.gm-sub { font-size:0.42rem;letter-spacing:2px;color:var(--dim);margin-bottom:18px; }
+.gm-sub { font-size:0.55rem;letter-spacing:2px;color:var(--dim);margin-bottom:18px; }
 .gm-grid { display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:18px; }
 .gm-card {
   border:1px solid var(--ab);border-radius:2px;padding:11px 9px;
@@ -220,15 +267,15 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
 .gm-card.off { opacity:0.32; }
 .gm-left { display:flex;align-items:center;gap:7px; }
 .gm-icon { font-size:1.25rem;line-height:1; }
-.gm-name { font-size:0.46rem;letter-spacing:1.5px;color:var(--a);display:block;margin-bottom:2px; }
-.gm-desc { font-size:0.36rem;letter-spacing:0.5px;color:var(--dim); }
+.gm-name { font-size:0.6rem;letter-spacing:1.5px;color:var(--a);display:block;margin-bottom:2px; }
+.gm-desc { font-size:0.47rem;letter-spacing:0.5px;color:var(--dim); }
 .tgl { position:relative;width:26px;height:14px;flex-shrink:0;cursor:pointer; }
 .tgl input { opacity:0;width:0;height:0; }
 .tgl-track { position:absolute;inset:0;background:rgba(232,160,0,0.08);border:1px solid var(--ab);border-radius:7px;transition:all 0.2s; }
 .tgl input:checked + .tgl-track { background:rgba(232,160,0,0.22);border-color:var(--a);box-shadow:0 0 8px rgba(232,160,0,0.18); }
 .tgl-thumb { position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:var(--dim);transition:all 0.2s; }
 .tgl input:checked ~ .tgl-thumb { transform:translateX(12px);background:var(--a);box-shadow:0 0 5px var(--a); }
-.gm-close { width:100%;padding:8px;background:transparent;border:1px solid var(--ab);color:var(--txt);font-family:'Space Mono',monospace;font-size:0.46rem;letter-spacing:3px;text-transform:uppercase;cursor:pointer;border-radius:2px;transition:all 0.18s; }
+.gm-close { width:100%;padding:8px;background:transparent;border:1px solid var(--ab);color:var(--txt);font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:3px;text-transform:uppercase;cursor:pointer;border-radius:2px;transition:all 0.18s; }
 .gm-close:hover { background:var(--a3);border-color:var(--a);color:var(--a); }
 
 /* toast */
@@ -236,7 +283,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
   position:fixed;top:54px;left:50%;transform:translateX(-50%);
   padding:5px 16px;background:rgba(6,5,0,0.92);
   border:1px solid var(--ab);border-radius:2px;
-  font-family:'VT323',monospace;font-size:0.82rem;letter-spacing:3px;color:var(--a);
+  font-family:'VT323',monospace;font-size:1.07rem;letter-spacing:3px;color:var(--a);
   z-index:900;pointer-events:none;opacity:0;transition:opacity 0.18s;white-space:nowrap;
 }
 #toast.show { opacity:1; }
@@ -249,11 +296,11 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
   background:linear-gradient(to top,rgba(8,6,0,0.88),transparent);
 }
 .gstrip { display:flex;gap:12px;align-items:center; }
-.gs { display:flex;align-items:center;gap:4px;font-size:0.4rem;letter-spacing:1.5px;color:var(--dim);transition:color 0.2s; }
+.gs { display:flex;align-items:center;gap:4px;font-size:0.52rem;letter-spacing:1.5px;color:var(--dim);transition:color 0.2s; }
 .gs.act { color:var(--a); }
 .gs.off { opacity:0.18;text-decoration:line-through; }
-.gs-e { font-size:0.72rem; }
-.modetag { font-family:'VT323',monospace;font-size:0.8rem;letter-spacing:3px;color:var(--a2); }
+.gs-e { font-size:0.94rem; }
+.modetag { font-family:'VT323',monospace;font-size:1.04rem;letter-spacing:3px;color:var(--a2); }
 
 /* OVERLAY */
 #overlay {
@@ -267,18 +314,18 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
   animation:crt 7s infinite;line-height:1;
 }
 @keyframes crt{0%,88%,100%{opacity:1}90%{opacity:.55}91%{opacity:1}95%{opacity:.7}96%{opacity:1}}
-.ov-sub { font-size:0.52rem;letter-spacing:6px;color:var(--dim);margin-top:-6px; }
+.ov-sub { font-size:0.68rem;letter-spacing:6px;color:var(--dim);margin-top:-6px; }
 .ov-warn {
   border:1px solid rgba(232,160,0,0.17);border-radius:2px;
-  padding:10px 18px;font-size:0.48rem;letter-spacing:1px;line-height:1.9;
+  padding:10px 18px;font-size:0.62rem;letter-spacing:1px;line-height:1.9;
   color:rgba(232,160,0,0.5);background:var(--a3);max-width:380px;text-align:center;
 }
 .ov-warn b { color:var(--a); }
 .ov-gs { display:grid;grid-template-columns:repeat(3,1fr);gap:5px;max-width:390px;width:100%; }
 .ov-g { border:1px solid var(--ab);border-radius:2px;padding:9px 7px;text-align:center;background:var(--a3); }
 .ov-gi { font-size:1.3rem;margin-bottom:3px; }
-.ov-gt { font-size:0.38rem;letter-spacing:1px;color:var(--dim);line-height:1.6; }
-#statusMsg { font-family:'VT323',monospace;font-size:0.85rem;letter-spacing:3px;color:var(--a2);min-height:1.2em;text-align:center; }
+.ov-gt { font-size:0.49rem;letter-spacing:1px;color:var(--dim);line-height:1.6; }
+#statusMsg { font-family:'VT323',monospace;font-size:1.1rem;letter-spacing:3px;color:var(--a2);min-height:1.2em;text-align:center; }
 .ov-pb { width:200px;height:1px;background:var(--ab); }
 #pfill { height:100%;background:var(--a);width:0%;transition:width 0.4s;box-shadow:0 0 5px var(--a); }
 .ov-btn {
@@ -301,13 +348,13 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
 }
 #introScreen.show { opacity:1;pointer-events:all; }
 .is-title { font-family:'VT323',monospace;font-size:1.3rem;letter-spacing:8px;color:var(--a);margin-bottom:2px; }
-.is-sub { font-size:0.44rem;letter-spacing:4px;color:var(--dim);margin-bottom:4px; }
+.is-sub { font-size:0.57rem;letter-spacing:4px;color:var(--dim);margin-bottom:4px; }
 .is-divider { width:320px;height:1px;background:var(--ab); }
 
 .is-sections { display:flex;gap:16px;max-width:700px;width:100%; }
 
 .is-col { flex:1;display:flex;flex-direction:column;gap:8px; }
-.is-col-title { font-family:'VT323',monospace;font-size:0.72rem;letter-spacing:4px;color:var(--a);opacity:0.6;margin-bottom:2px; }
+.is-col-title { font-family:'VT323',monospace;font-size:0.94rem;letter-spacing:4px;color:var(--a);opacity:0.6;margin-bottom:2px; }
 
 .is-gesture-list { display:flex;flex-direction:column;gap:5px; }
 .is-g {
@@ -317,17 +364,17 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
 }
 .is-g-emoji { font-size:1.1rem;width:24px;text-align:center; }
 .is-g-info {}
-.is-g-name { font-size:0.48rem;letter-spacing:2px;color:var(--a);display:block;margin-bottom:1px; }
-.is-g-desc { font-size:0.38rem;letter-spacing:0.5px;color:var(--dim); }
+.is-g-name { font-size:0.62rem;letter-spacing:2px;color:var(--a);display:block;margin-bottom:1px; }
+.is-g-desc { font-size:0.49rem;letter-spacing:0.5px;color:var(--dim); }
 
 .is-tips { display:flex;flex-direction:column;gap:6px; }
 .is-tip {
   border:1px solid var(--ab);border-radius:2px;
   padding:8px 10px;background:var(--a3);
-  font-size:0.42rem;letter-spacing:1px;color:var(--dim);line-height:1.8;
+  font-size:0.55rem;letter-spacing:1px;color:var(--dim);line-height:1.8;
 }
 .is-tip b { color:var(--a); }
-.is-tip .is-tip-title { font-family:'VT323',monospace;font-size:0.65rem;letter-spacing:3px;color:var(--a);display:block;margin-bottom:3px; }
+.is-tip .is-tip-title { font-family:'VT323',monospace;font-size:0.85rem;letter-spacing:3px;color:var(--a);display:block;margin-bottom:3px; }
 
 .is-start {
   padding:10px 48px;background:transparent;border:1px solid var(--a);color:var(--a);
@@ -336,9 +383,295 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
   margin-top:4px;
 }
 .is-start:hover { background:var(--a3);box-shadow:0 0 22px rgba(232,160,0,0.18); }
+
+/* ── AUTH & GALLERY MODALS ── */
+.auth-modal {
+  position:fixed;inset:0;background:rgba(0,0,0,0.88);
+  z-index:1100;display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity 0.25s;
+  backdrop-filter:blur(8px);
+}
+.auth-modal.open { opacity:1;pointer-events:all; }
+
+.auth-box {
+  background:rgba(6,5,0,0.98);border:1px solid var(--ab);
+  border-radius:3px;padding:32px 36px;width:340px;max-width:92vw;
+  box-shadow:0 0 80px rgba(0,0,0,0.9),0 0 30px rgba(232,160,0,0.08);
+  position:relative;
+}
+.auth-box::before {
+  content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.15) 2px,rgba(0,0,0,0.15) 3px);
+  opacity:0.5;border-radius:3px;
+}
+.auth-title {
+  font-family:'VT323',monospace;font-size:1.4rem;letter-spacing:8px;
+  color:var(--a);text-align:center;margin-bottom:4px;
+  text-shadow:0 0 20px rgba(232,160,0,0.4);
+}
+.auth-sub {
+  font-size:0.52rem;letter-spacing:3px;color:var(--dim);
+  text-align:center;margin-bottom:24px;text-transform:uppercase;
+}
+.auth-input {
+  width:100%;padding:14px 16px;margin-bottom:14px;
+  background:rgba(8,6,0,0.9);border:1px solid var(--ab);
+  border-radius:2px;color:var(--a);
+  font-family:'Space Mono',monospace;font-size:0.85rem;letter-spacing:1px;
+  outline:none;transition:all 0.2s;
+}
+.auth-input::placeholder { color:var(--dim);opacity:0.5; }
+.auth-input:focus { border-color:var(--a);box-shadow:0 0 12px rgba(232,160,0,0.15); }
+
+/* Password input wrapper */
+.password-wrapper {
+  position:relative;width:100%;margin-bottom:14px;
+}
+.password-wrapper input {
+  margin-bottom:0;padding-right:45px;
+}
+.password-toggle {
+  position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--dim);
+  cursor:pointer;font-size:0.85rem;padding:4px 8px;
+  transition:color 0.2s;
+}
+.password-toggle:hover { color:var(--a); }
+.auth-btn {
+  width:100%;padding:12px;margin-top:8px;
+  background:transparent;border:1px solid var(--a);color:var(--a);
+  font-family:'VT323',monospace;font-size:1rem;letter-spacing:5px;
+  text-transform:uppercase;cursor:pointer;border-radius:2px;
+  transition:all 0.2s;
+}
+.auth-btn:hover { background:var(--a3);box-shadow:0 0 20px rgba(232,160,0,0.2); }
+.auth-btn:disabled { opacity:0.4;cursor:not-allowed; }
+.auth-btn.secondary {
+  border-color:var(--ab);color:var(--dim);margin-top:10px;font-size:0.85rem;
+}
+.auth-btn.secondary:hover { border-color:var(--a);color:var(--a);background:var(--a3); }
+.auth-switch {
+  text-align:center;margin-top:18px;font-size:0.5rem;letter-spacing:1px;color:var(--dim);
+}
+.auth-switch a {
+  color:var(--a);cursor:pointer;text-decoration:none;border-bottom:1px solid transparent;
+  transition:border-color 0.2s;
+}
+.auth-switch a:hover { border-bottom-color:var(--a); }
+.auth-error {
+  background:rgba(255,68,68,0.1);border:1px solid rgba(255,68,68,0.3);
+  border-radius:2px;padding:10px;margin-bottom:14px;
+  font-size:0.55rem;letter-spacing:1px;color:#ff6666;
+  text-align:center;display:none;
+}
+.auth-error.show { display:block; }
+.auth-close {
+  position:absolute;top:12px;right:14px;
+  background:none;border:none;color:var(--dim);
+  font-size:1.2rem;cursor:pointer;transition:color 0.2s;
+  line-height:1;padding:4px;
+}
+.auth-close:hover { color:var(--a); }
+
+/* User indicator in topbar */
+#userIndicator {
+  display:flex;align-items:center;gap:10px;
+  pointer-events:all;
+}
+.user-tag {
+  display:flex;align-items:center;gap:7px;
+  font-size:0.56rem;letter-spacing:2px;color:var(--a);
+  cursor:pointer;padding:5px 10px;border:1px solid transparent;
+  border-radius:2px;transition:all 0.2s;
+}
+.user-tag:hover { border-color:var(--ab);background:var(--a3); }
+.user-avatar {
+  width:20px;height:20px;border-radius:50%;
+  background:var(--a3);border:1px solid var(--a);
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.6rem;color:var(--a);
+}
+.guest-tag {
+  font-size:0.52rem;letter-spacing:2px;color:var(--dim);
+  cursor:pointer;padding:6px 12px;border:1px solid var(--ab);
+  border-radius:2px;transition:all 0.2s;pointer-events:all;
+}
+.guest-tag:hover { border-color:var(--a);color:var(--a);background:var(--a3); }
+
+/* User dropdown */
+#userDropdown {
+  position:absolute;top:38px;right:0;
+  background:rgba(6,5,0,0.98);border:1px solid var(--ab);
+  border-radius:2px;min-width:160px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.6);
+  opacity:0;pointer-events:none;transform:translateY(-8px);
+  transition:all 0.2s;z-index:600;
+}
+#userDropdown.open { opacity:1;pointer-events:all;transform:translateY(0); }
+.dropdown-item {
+  padding:10px 14px;font-size:0.59rem;letter-spacing:2px;
+  color:var(--dim);cursor:pointer;transition:all 0.15s;
+  display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--ab);
+}
+.dropdown-item:last-child { border-bottom:none; }
+.dropdown-item:hover { background:var(--a3);color:var(--a); }
+.dropdown-item.red:hover { color:#ff6666;background:rgba(255,68,68,0.08); }
+
+/* Gallery Modal */
+.gallery-box {
+  background:rgba(6,5,0,0.98);border:1px solid var(--ab);
+  border-radius:3px;padding:28px;width:720px;max-width:94vw;max-height:85vh;
+  box-shadow:0 0 80px rgba(0,0,0,0.9);overflow:hidden;
+  display:flex;flex-direction:column;
+}
+.gallery-title {
+  font-family:'VT323',monospace;font-size:1.2rem;letter-spacing:6px;
+  color:var(--a);margin-bottom:4px;
+}
+.gallery-sub {
+  font-size:0.55rem;letter-spacing:2px;color:var(--dim);margin-bottom:18px;
+}
+.gallery-grid {
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;
+  overflow-y:auto;flex:1;padding-right:8px;
+}
+.gallery-grid::-webkit-scrollbar { width:3px; }
+.gallery-grid::-webkit-scrollbar-thumb { background:var(--ab);border-radius:2px; }
+.gallery-item {
+  border:1px solid var(--ab);border-radius:2px;overflow:hidden;
+  background:var(--a3);cursor:pointer;transition:all 0.2s;
+  position:relative;
+}
+.gallery-item:hover { border-color:var(--a);transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,0.4); }
+.gallery-thumb {
+  width:100%;aspect-ratio:16/10;object-fit:cover;
+  background:#080600;display:block;
+}
+.gallery-info {
+  padding:10px;border-top:1px solid var(--ab);
+}
+.gallery-name {
+  font-size:0.62rem;letter-spacing:1px;color:var(--a);
+  margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.gallery-date {
+  font-size:0.47rem;letter-spacing:1px;color:var(--dim);
+}
+.gallery-actions {
+  position:absolute;top:6px;right:6px;display:flex;gap:4px;
+  opacity:0;transition:opacity 0.2s;
+}
+.gallery-item:hover .gallery-actions { opacity:1; }
+.gallery-action-btn {
+  width:24px;height:24px;border-radius:2px;
+  background:rgba(6,5,0,0.9);border:1px solid var(--ab);
+  color:var(--dim);cursor:pointer;transition:all 0.15s;
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.65rem;
+}
+.gallery-action-btn:hover { border-color:var(--a);color:var(--a);background:var(--a3); }
+.gallery-action-btn.delete:hover { border-color:#ff4444;color:#ff4444;background:rgba(255,68,68,0.1); }
+.gallery-empty {
+  text-align:center;padding:60px 20px;color:var(--dim);
+}
+.gallery-empty-icon { font-size:3rem;margin-bottom:12px;opacity:0.3; }
+.gallery-empty-text { font-size:0.65rem;letter-spacing:2px; }
+.gallery-close {
+  margin-top:16px;padding:10px 32px;
+  background:transparent;border:1px solid var(--ab);color:var(--txt);
+  font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:3px;
+  text-transform:uppercase;cursor:pointer;border-radius:2px;
+  transition:all 0.18s;align-self:center;
+}
+.gallery-close:hover { background:var(--a3);border-color:var(--a);color:var(--a); }
+
+/* Save Dialog */
+.save-dialog-box {
+  background:rgba(6,5,0,0.98);border:1px solid var(--ab);
+  border-radius:3px;padding:28px;width:360px;max-width:92vw;
+  box-shadow:0 0 60px rgba(0,0,0,0.9);
+}
+.save-dialog-title {
+  font-family:'VT323',monospace;font-size:1.1rem;letter-spacing:5px;
+  color:var(--a);margin-bottom:16px;text-align:center;
+}
+.save-dialog-btns {
+  display:flex;gap:10px;margin-top:16px;
+}
+.save-dialog-btns .auth-btn { flex:1; }
+
+/* Loading spinner */
+.auth-loading {
+  display:none;align-items:center;justify-content:center;
+  gap:8px;padding:12px;color:var(--a);
+}
+.auth-loading.show { display:flex; }
+.spinner {
+  width:16px;height:16px;border:2px solid var(--ab);
+  border-top-color:var(--a);border-radius:50%;
+  animation:spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── INITIAL AUTH SCREEN ── */
+#initialAuthScreen {
+  position:fixed;inset:0;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:1200;gap:24px;
+  opacity:1;pointer-events:all;
+  transition:opacity 0.5s;
+}
+#initialAuthScreen.hidden { opacity:0;pointer-events:none; }
+.ias-logo {
+  font-family:'VT323',monospace;font-size:5.2rem;letter-spacing:20px;
+  color:var(--a);text-shadow:0 0 40px rgba(232,160,0,0.45),0 0 2px rgba(232,160,0,0.9);
+  animation:crt 7s infinite;line-height:1;margin-bottom:8px;
+}
+.ias-sub {
+  font-size:0.62rem;letter-spacing:7px;color:var(--dim);margin-bottom:32px;text-transform:uppercase;
+}
+.ias-title {
+  font-family:'VT323',monospace;font-size:1.3rem;letter-spacing:6px;
+  color:var(--a);margin-bottom:20px;text-align:center;
+}
+.ias-options {
+  display:flex;flex-direction:column;gap:14px;width:340px;max-width:90vw;
+}
+.ias-btn {
+  padding:16px 32px;background:transparent;border:1px solid var(--a);color:var(--a);
+  font-family:'VT323',monospace;font-size:1.2rem;letter-spacing:6px;
+  text-transform:uppercase;cursor:pointer;border-radius:2px;
+  transition:all 0.25s;position:relative;overflow:hidden;
+}
+.ias-btn:hover { background:var(--a3);box-shadow:0 0 28px rgba(232,160,0,0.2);transform:translateY(-2px); }
+.ias-btn.secondary {
+  border-color:rgba(232,160,0,0.4);color:rgba(200,168,75,0.8);font-size:0.95rem;
+}
+.ias-btn.secondary:hover { border-color:var(--a);color:var(--a);background:var(--a3); }
+.ias-desc {
+  font-size:0.5rem;letter-spacing:2px;color:rgba(200,168,75,0.7);
+  text-align:center;margin-top:16px;line-height:1.8;
+}
 </style>
-<script src="./index_files/camera_utils.js.download" crossorigin="anonymous"></script><script src="./index_files/drawing_utils.js.download" crossorigin="anonymous"></script></head>
+</head>
 <body>
+
+<!-- INITIAL AUTH SCREEN (shown first) -->
+<div id="initialAuthScreen" class="show">
+  <div class="ias-logo">AIR DRAW</div>
+  <div class="ias-sub">GESTURE · DRAW · V1.2</div>
+  <div class="ias-title">CHOOSE YOUR MODE</div>
+  <div class="ias-options">
+    <button class="ias-btn" onclick="chooseLogin()">LOGIN</button>
+    <button class="ias-btn" onclick="chooseSignup()">SIGN UP</button>
+    <button class="ias-btn secondary" onclick="chooseGuest()">USE AS GUEST</button>
+  </div>
+  <div class="ias-desc">
+    Save your drawings to the cloud with an account<br>
+    or continue as guest with local-only features
+  </div>
+</div>
 
 <!-- STARTUP OVERLAY -->
 <div id="overlay">
@@ -387,7 +720,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
       <div class="is-tips">
         <div class="is-tip">
           <span class="is-tip-title">⊕ GESTURE CONFIG</span>
-          Click the <b>⊕ GESTURES</b> button at the <b>bottom-right</b> of the screen to enable or disable individual gestures at any time.
+          Click the <b>⊕ GESTURES</b> button at the <b>top-right</b> of the screen to enable or disable individual gestures at any time.
         </div>
         <div class="is-tip">
           <span class="is-tip-title">≡ SETTINGS PANEL</span>
@@ -412,19 +745,35 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
 <video id="video" autoplay="" playsinline="" muted=""></video>
 <canvas id="drawCanvas"></canvas>
 <canvas id="overlayCanvas"></canvas>
+<div id="eraserBox"></div>
 
 <!-- CORNERS -->
 <div class="corner tl"></div><div class="corner tr"></div>
-<div class="corner bl"></div><div class="corner br"></div>
+<div class="corner bl"></div>
 
 <!-- TOPBAR -->
 <div id="topbar">
   <div class="logo">AIR DRAW</div>
-  <div class="sysstatus">
-    <div class="sig"><div class="sd" id="dCam"></div><span>CAM</span></div>
-    <div class="sig"><div class="sd" id="dHand"></div><span>HAND</span></div>
-    <div class="sig"><div class="sd" id="dDraw"></div><span>DRAW</span></div>
-    <div class="sig"><div class="sd" id="dModel"></div><span>MDL</span></div>
+  <div style="display:flex;align-items:center;gap:18px;">
+    <div class="sysstatus">
+      <div class="sig"><div class="sd" id="dCam"></div><span>CAM</span></div>
+      <div class="sig"><div class="sd" id="dHand"></div><span>HAND</span></div>
+      <div class="sig"><div class="sd" id="dDraw"></div><span>DRAW</span></div>
+      <div class="sig"><div class="sd" id="dModel"></div><span>MDL</span></div>
+    </div>
+    <!-- User Indicator -->
+    <div id="userIndicator" style="position:relative;">
+      <div id="guestTag" class="guest-tag" onclick="openAuthModal('login')">⊕ LOGIN</div>
+      <div id="userTag" class="user-tag" style="display:none;" onclick="toggleUserDropdown()">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <span id="userName">USER</span>
+      </div>
+      <div id="userDropdown">
+        <div class="dropdown-item" onclick="openGallery()">🖼️ MY GALLERY</div>
+        <div class="dropdown-item" onclick="saveToCloud()">💾 SAVE DRAWING</div>
+        <div class="dropdown-item red" onclick="logoutUser()">⏻ LOGOUT</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -458,6 +807,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
 
 <!-- SIDE PANEL -->
 <div id="fpanel">
+  <button id="panelClose" onclick="togglePanel()">&times;</button>
   <div class="fp-s">
     <div class="fp-t">// COLOR</div>
     <div class="fp-colors" id="colorGrid"><div class="sw sel" style="background: rgb(232, 160, 0);"></div><div class="sw" style="background: rgb(255, 64, 64);"></div><div class="sw" style="background: rgb(77, 255, 145);"></div><div class="sw" style="background: rgb(0, 200, 255);"></div><div class="sw" style="background: rgb(255, 0, 170);"></div><div class="sw" style="background: rgb(255, 215, 0);"></div><div class="sw" style="background: rgb(255, 102, 0);"></div><div class="sw" style="background: rgb(204, 0, 255);"></div><div class="sw" style="background: rgb(255, 255, 255);"></div></div>
@@ -484,6 +834,8 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
     <button class="fpbtn" onclick="undoLast()">⌫ UNDO</button>
     <button class="fpbtn red" onclick="clearAll()">⊘ CLEAR ALL</button>
     <button class="fpbtn" onclick="saveImg()">↓ SAVE PNG</button>
+    <button class="fpbtn" onclick="saveToCloud()" style="border-color:rgba(77,255,145,0.3);color:rgba(77,255,145,0.7);">☁ SAVE TO CLOUD</button>
+    <button class="fpbtn" onclick="openGallery()">🖼 MY GALLERY</button>
   </div>
   <div class="fp-s">
     <div class="fp-t">// STATS</div>
@@ -528,6 +880,94 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;width:9px;heig
 <!-- TOAST -->
 <div id="toast"></div>
 
+<!-- LOGIN MODAL -->
+<div id="loginModal" class="auth-modal" onclick="authModalBg(event,'loginModal')">
+  <div class="auth-box">
+    <button class="auth-close" onclick="closeAuthModal('loginModal')">&times;</button>
+    <div class="auth-title">LOGIN</div>
+    <div class="auth-sub">Access your drawings</div>
+    <div id="loginError" class="auth-error"></div>
+    <input type="text" id="loginUsername" class="auth-input" placeholder="USERNAME" autocomplete="off">
+    <div class="password-wrapper">
+      <input type="password" id="loginPassword" class="auth-input" placeholder="PASSWORD">
+      <button class="password-toggle" onclick="togglePasswordVisibility('loginPassword', this)" type="button">👁️</button>
+    </div>
+    <div id="loginLoading" class="auth-loading">
+      <div class="spinner"></div>
+      <span style="font-size:0.65rem;letter-spacing:2px;">AUTHENTICATING...</span>
+    </div>
+    <button id="loginBtn" class="auth-btn" onclick="loginUser()">LOGIN</button>
+    <div class="auth-switch">
+      Don't have an account? <a onclick="switchToSignup()">SIGN UP</a>
+    </div>
+  </div>
+</div>
+
+<!-- SIGNUP MODAL -->
+<div id="signupModal" class="auth-modal" onclick="authModalBg(event,'signupModal')">
+  <div class="auth-box">
+    <button class="auth-close" onclick="closeAuthModal('signupModal')">&times;</button>
+    <div class="auth-title">SIGN UP</div>
+    <div class="auth-sub">Create your account</div>
+    <div id="signupError" class="auth-error"></div>
+    <input type="text" id="signupUsername" class="auth-input" placeholder="USERNAME" autocomplete="off">
+    <div class="password-wrapper">
+      <input type="password" id="signupPassword" class="auth-input" placeholder="PASSWORD (min 6 chars)">
+      <button class="password-toggle" onclick="togglePasswordVisibility('signupPassword', this)" type="button">👁️</button>
+    </div>
+    <div class="password-wrapper">
+      <input type="password" id="signupConfirm" class="auth-input" placeholder="CONFIRM PASSWORD">
+      <button class="password-toggle" onclick="togglePasswordVisibility('signupConfirm', this)" type="button">👁️</button>
+    </div>
+    <div id="signupLoading" class="auth-loading">
+      <div class="spinner"></div>
+      <span style="font-size:0.65rem;letter-spacing:2px;">CREATING ACCOUNT...</span>
+    </div>
+    <button id="signupBtn" class="auth-btn" onclick="signupUser()">CREATE ACCOUNT</button>
+    <div class="auth-switch">
+      Already have an account? <a onclick="switchToLogin()">LOGIN</a>
+    </div>
+  </div>
+</div>
+
+<!-- GALLERY MODAL -->
+<div id="galleryModal" class="auth-modal" onclick="authModalBg(event,'galleryModal')">
+  <div class="gallery-box">
+    <div class="gallery-title">MY GALLERY</div>
+    <div class="gallery-sub">YOUR SAVED DRAWINGS</div>
+    <div id="galleryGrid" class="gallery-grid">
+      <!-- Drawings will be loaded here -->
+    </div>
+    <button class="gallery-close" onclick="closeGallery()">CLOSE</button>
+  </div>
+</div>
+
+<!-- SAVE DIALOG -->
+<div id="saveDialog" class="auth-modal" onclick="authModalBg(event,'saveDialog')">
+  <div class="save-dialog-box">
+    <div class="save-dialog-title">SAVE DRAWING</div>
+    <input type="text" id="drawingName" class="auth-input" placeholder="DRAWING NAME" autocomplete="off">
+    <div class="save-dialog-btns">
+      <button class="auth-btn secondary" onclick="closeSaveDialog()">CANCEL</button>
+      <button class="auth-btn" onclick="confirmSave()">SAVE</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN PROMPT (for guest save) -->
+<div id="loginPrompt" class="auth-modal" onclick="authModalBg(event,'loginPrompt')">
+  <div class="save-dialog-box">
+    <div class="save-dialog-title">LOGIN REQUIRED</div>
+    <p style="font-size:0.62rem;letter-spacing:1px;color:var(--dim);text-align:center;margin-bottom:16px;line-height:1.8;">
+      Sign in to save your drawings to the cloud and access them from anywhere.
+    </p>
+    <div class="save-dialog-btns">
+      <button class="auth-btn secondary" onclick="closeLoginPrompt()">CANCEL</button>
+      <button class="auth-btn" onclick="promptToLogin()">LOGIN / SIGNUP</button>
+    </div>
+  </div>
+</div>
+
 <!-- STATUS BAR -->
 <div id="statusbar">
   <div class="gstrip" id="gstrip"></div>
@@ -559,6 +999,9 @@ let drawing=false,eraseArmed=false,eraseMode=false,peaceArmed=false,hangArmed=fa
 let colorIdx=0,posBuffer=[],lastX=null,lastY=null;
 let fpsT=Date.now(),fpsN=0,panelOpen=false,tcStart=Date.now();
 let holdStart={};
+
+// Eraser hitbox size (pixels)
+const ERASER_SIZE = 120;
 
 const video=document.getElementById('video');
 const dCvs=document.getElementById('drawCanvas');
@@ -818,6 +1261,8 @@ function onResults(results){
     ['dbConf','dbGesture','dbPinch','dbFingers'].forEach(id=>document.getElementById(id).textContent='--');
     document.getElementById('dbConfBar').style.width='0%';
     setMode('--');drawOverlay(null,false,false,false);
+    // Hide eraser box when hand not detected
+    document.getElementById('eraserBox').classList.remove('active');
     if(drawing&&curStroke.length>1){
       strokes.push({pts:[...curStroke],col:color,br:brush,op:opacity,gl:glow});
       document.getElementById('sStrokes').textContent=strokes.length;
@@ -853,12 +1298,79 @@ function onResults(results){
       document.getElementById('gs-fist')?.classList.add('act');
       setMode('ERASE');
       const W=dCvs.width,H=dCvs.height;
-      const ex=(1-lm[0].x)*W,ey=lm[0].y*H;
-      strokes=strokes.filter(s=>!s.pts.some(p=>Math.hypot(p.x-ex,p.y-ey)<42));
+      
+      // Position box at middle of hand (palm center - landmark 9 is middle finger base)
+      const handX=(1-lm[9].x)*W;
+      const handY=lm[9].y*H;
+      
+      // Show eraser hitbox
+      const eraserBox = document.getElementById('eraserBox');
+      eraserBox.classList.add('active');
+      eraserBox.style.left = (handX - ERASER_SIZE/2) + 'px';
+      eraserBox.style.top = (handY - ERASER_SIZE/2) + 'px';
+      eraserBox.style.width = ERASER_SIZE + 'px';
+      eraserBox.style.height = ERASER_SIZE + 'px';
+      
+      // Erase box boundaries
+      const boxLeft = handX - ERASER_SIZE/2;
+      const boxRight = handX + ERASER_SIZE/2;
+      const boxTop = handY - ERASER_SIZE/2;
+      const boxBottom = handY + ERASER_SIZE/2;
+      
+      // Helper function to check if point is inside box
+      const isInBox = (p) => p.x >= boxLeft && p.x <= boxRight && p.y >= boxTop && p.y <= boxBottom;
+      
+      // Process each stroke - split into segments
+      const newStrokes = [];
+      for(const stroke of strokes) {
+        const newSegments = [];
+        let currentSegment = [];
+        
+        for(let i = 0; i < stroke.pts.length; i++) {
+          const pt = stroke.pts[i];
+          
+          if(!isInBox(pt)) {
+            // Point is outside box - keep it
+            currentSegment.push(pt);
+          } else {
+            // Point is inside box - erase it
+            if(currentSegment.length > 1) {
+              // Save the current segment before the erased part
+              newSegments.push([...currentSegment]);
+            }
+            currentSegment = [];
+          }
+        }
+        
+        // Add final segment if exists
+        if(currentSegment.length > 1) {
+          newSegments.push(currentSegment);
+        }
+        
+        // Create new strokes from segments
+        for(const seg of newSegments) {
+          if(seg.length > 1) {
+            newStrokes.push({
+              pts: seg,
+              col: stroke.col,
+              br: stroke.br,
+              op: stroke.op,
+              gl: stroke.gl
+            });
+          }
+        }
+      }
+      
+      strokes = newStrokes;
       redrawAll();eraseArmed=false;peaceArmed=false;hangArmed=false;return;
     }
   } else held('fist',false);
-  if(eraseMode&&!fist)eraseMode=false;
+  
+  // Hide eraser box when not in erase mode
+  if(eraseMode&&!fist){
+    eraseMode=false;
+    document.getElementById('eraserBox').classList.remove('active');
+  }
 
   // ── HANG → clear (hold 360ms) ──
   if(hang&&gOn('hang')){
@@ -1003,6 +1515,471 @@ function dismissIntro(){
     document.getElementById('gBtn').classList.add('vis');
   },400);
 }
+
+// ── INITIAL AUTH SCREEN ───────────────────────────────────────────────────────
+function hideInitialAuth() {
+  const ias = document.getElementById('initialAuthScreen');
+  ias.classList.add('hidden');
+  setTimeout(() => {
+    ias.style.display = 'none';
+  }, 500);
+}
+
+function chooseLogin() {
+  hideInitialAuth();
+  setTimeout(() => {
+    openAuthModal('login');
+  }, 500);
+}
+
+function chooseSignup() {
+  hideInitialAuth();
+  setTimeout(() => {
+    openAuthModal('signup');
+  }, 500);
+}
+
+function chooseGuest() {
+  hideInitialAuth();
+  showToast('GUEST MODE · DRAW LOCALLY');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ══ FIREBASE AUTH & GALLERY ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Listen for auth state changes
+auth.onAuthStateChanged(user => {
+  currentUser = user;
+  updateUserUI();
+});
+
+function updateUserUI() {
+  const guestTag = document.getElementById('guestTag');
+  const userTag = document.getElementById('userTag');
+  const userName = document.getElementById('userName');
+  const userAvatar = document.getElementById('userAvatar');
+  
+  if (currentUser) {
+    // User is logged in - get username from Firestore
+    db.collection('users').doc(currentUser.uid).get().then(doc => {
+      const username = doc.exists ? doc.data().username : 'USER';
+      userName.textContent = username.toUpperCase();
+      userAvatar.textContent = username.charAt(0).toUpperCase();
+    });
+    guestTag.style.display = 'none';
+    userTag.style.display = 'flex';
+  } else {
+    // Guest mode
+    guestTag.style.display = 'block';
+    userTag.style.display = 'none';
+  }
+  closeUserDropdown();
+}
+
+// ── AUTH MODAL FUNCTIONS ──────────────────────────────────────────────────────
+function openAuthModal(type) {
+  closeUserDropdown();
+  document.getElementById(type + 'Modal').classList.add('open');
+  // Focus first input
+  setTimeout(() => {
+    const input = document.getElementById(type + 'Username');
+    if (input) input.focus();
+  }, 100);
+}
+
+function closeAuthModal(modalId) {
+  document.getElementById(modalId).classList.remove('open');
+  // Clear inputs and errors
+  const modal = document.getElementById(modalId);
+  modal.querySelectorAll('input').forEach(i => i.value = '');
+  modal.querySelectorAll('.auth-error').forEach(e => e.classList.remove('show'));
+}
+
+function authModalBg(event, modalId) {
+  if (event.target.classList.contains('auth-modal')) {
+    closeAuthModal(modalId);
+  }
+}
+
+function switchToSignup() {
+  closeAuthModal('loginModal');
+  setTimeout(() => openAuthModal('signup'), 200);
+}
+
+function switchToLogin() {
+  closeAuthModal('signupModal');
+  setTimeout(() => openAuthModal('login'), 200);
+}
+
+// Toggle password visibility
+function togglePasswordVisibility(inputId, button) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') {
+    input.type = 'text';
+    button.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    button.textContent = '👁️';
+  }
+}
+
+function showAuthError(modalId, message) {
+  const errorEl = document.getElementById(modalId.replace('Modal', '') + 'Error');
+  errorEl.textContent = message;
+  errorEl.classList.add('show');
+}
+
+function setAuthLoading(modalId, loading) {
+  const prefix = modalId.replace('Modal', '');
+  document.getElementById(prefix + 'Loading').classList.toggle('show', loading);
+  document.getElementById(prefix + 'Btn').style.display = loading ? 'none' : 'block';
+}
+
+// ── SIGNUP ────────────────────────────────────────────────────────────────────
+async function signupUser() {
+  const username = document.getElementById('signupUsername').value.trim();
+  const password = document.getElementById('signupPassword').value;
+  const confirm = document.getElementById('signupConfirm').value;
+  
+  // Validation
+  if (!username || username.length < 3) {
+    showAuthError('signupModal', 'Username must be at least 3 characters');
+    return;
+  }
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+    showAuthError('signupModal', 'Username can only contain letters, numbers, and underscores');
+    return;
+  }
+  if (password.length < 6) {
+    showAuthError('signupModal', 'Password must be at least 6 characters');
+    return;
+  }
+  if (password !== confirm) {
+    showAuthError('signupModal', 'Passwords do not match');
+    return;
+  }
+  
+  setAuthLoading('signupModal', true);
+  
+  try {
+    // Check if username is taken
+    const usernameDoc = await db.collection('usernames').doc(username.toLowerCase()).get();
+    if (usernameDoc.exists) {
+      showAuthError('signupModal', 'Username is already taken');
+      setAuthLoading('signupModal', false);
+      return;
+    }
+    
+    // Create user with email (using username@airdraw.app as fake email)
+    const fakeEmail = `${username.toLowerCase()}@airdraw.app`;
+    const userCredential = await auth.createUserWithEmailAndPassword(fakeEmail, password);
+    
+    // Store user data
+    const batch = db.batch();
+    batch.set(db.collection('users').doc(userCredential.user.uid), {
+      username: username,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    batch.set(db.collection('usernames').doc(username.toLowerCase()), {
+      uid: userCredential.user.uid
+    });
+    await batch.commit();
+    
+    closeAuthModal('signupModal');
+    toast('WELCOME, ' + username.toUpperCase() + '!');
+    
+  } catch (error) {
+    console.error('Signup error:', error);
+    let msg = 'Signup failed. Please try again.';
+    if (error.code === 'auth/email-already-in-use') {
+      msg = 'Username is already taken';
+    } else if (error.code === 'auth/weak-password') {
+      msg = 'Password is too weak';
+    }
+    showAuthError('signupModal', msg);
+  }
+  
+  setAuthLoading('signupModal', false);
+}
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+async function loginUser() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  
+  if (!username || !password) {
+    showAuthError('loginModal', 'Please enter username and password');
+    return;
+  }
+  
+  setAuthLoading('loginModal', true);
+  
+  try {
+    const fakeEmail = `${username.toLowerCase()}@airdraw.app`;
+    await auth.signInWithEmailAndPassword(fakeEmail, password);
+    
+    closeAuthModal('loginModal');
+    toast('WELCOME BACK, ' + username.toUpperCase() + '!');
+    
+  } catch (error) {
+    console.error('Login error:', error);
+    let msg = 'Invalid username or password';
+    if (error.code === 'auth/user-not-found') {
+      msg = 'User not found';
+    } else if (error.code === 'auth/wrong-password') {
+      msg = 'Incorrect password';
+    } else if (error.code === 'auth/too-many-requests') {
+      msg = 'Too many attempts. Try again later.';
+    }
+    showAuthError('loginModal', msg);
+  }
+  
+  setAuthLoading('loginModal', false);
+}
+
+// ── LOGOUT ────────────────────────────────────────────────────────────────────
+async function logoutUser() {
+  closeUserDropdown();
+  try {
+    await auth.signOut();
+    toast('LOGGED OUT');
+  } catch (error) {
+    console.error('Logout error:', error);
+    toast('LOGOUT FAILED');
+  }
+}
+
+// ── USER DROPDOWN ─────────────────────────────────────────────────────────────
+function toggleUserDropdown() {
+  document.getElementById('userDropdown').classList.toggle('open');
+}
+
+function closeUserDropdown() {
+  document.getElementById('userDropdown').classList.remove('open');
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  const dropdown = document.getElementById('userDropdown');
+  const userTag = document.getElementById('userTag');
+  if (!dropdown.contains(e.target) && !userTag.contains(e.target)) {
+    closeUserDropdown();
+  }
+});
+
+// ── SAVE TO CLOUD ─────────────────────────────────────────────────────────────
+function saveToCloud() {
+  closeUserDropdown();
+  
+  if (!currentUser) {
+    // Show login prompt for guests
+    document.getElementById('loginPrompt').classList.add('open');
+    return;
+  }
+  
+  if (strokes.length === 0) {
+    toast('NO DRAWING TO SAVE');
+    return;
+  }
+  
+  // Show save dialog
+  document.getElementById('saveDialog').classList.add('open');
+  document.getElementById('drawingName').value = 'Drawing ' + new Date().toLocaleDateString();
+  document.getElementById('drawingName').focus();
+  document.getElementById('drawingName').select();
+}
+
+function closeSaveDialog() {
+  document.getElementById('saveDialog').classList.remove('open');
+}
+
+function closeLoginPrompt() {
+  document.getElementById('loginPrompt').classList.remove('open');
+}
+
+function promptToLogin() {
+  closeLoginPrompt();
+  setTimeout(() => openAuthModal('login'), 200);
+}
+
+async function confirmSave() {
+  const name = document.getElementById('drawingName').value.trim() || 'Untitled';
+  
+  closeSaveDialog();
+  toast('SAVING...');
+  
+  try {
+    // Generate thumbnail
+    const thumbCanvas = document.createElement('canvas');
+    thumbCanvas.width = 320;
+    thumbCanvas.height = 200;
+    const tctx = thumbCanvas.getContext('2d');
+    tctx.fillStyle = '#080600';
+    tctx.fillRect(0, 0, 320, 200);
+    tctx.drawImage(dCvs, 0, 0, dCvs.width, dCvs.height, 0, 0, 320, 200);
+    const thumbnail = thumbCanvas.toDataURL('image/jpeg', 0.7);
+    
+    // Get username
+    const userDoc = await db.collection('users').doc(currentUser.uid).get();
+    const username = userDoc.exists ? userDoc.data().username : 'Unknown';
+    
+    // Save to Firestore
+    await db.collection('drawings').add({
+      userId: currentUser.uid,
+      username: username,
+      name: name,
+      strokes: JSON.stringify(strokes),
+      strokeCount: strokes.length,
+      pointCount: totalPts,
+      thumbnail: thumbnail,
+      canvasWidth: dCvs.width,
+      canvasHeight: dCvs.height,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    toast('SAVED TO CLOUD ✓');
+    
+  } catch (error) {
+    console.error('Save error:', error);
+    toast('SAVE FAILED');
+  }
+}
+
+// ── GALLERY ───────────────────────────────────────────────────────────────────
+async function openGallery() {
+  closeUserDropdown();
+  
+  if (!currentUser) {
+    document.getElementById('loginPrompt').classList.add('open');
+    return;
+  }
+  
+  document.getElementById('galleryModal').classList.add('open');
+  loadGallery();
+}
+
+function closeGallery() {
+  document.getElementById('galleryModal').classList.remove('open');
+}
+
+async function loadGallery() {
+  const grid = document.getElementById('galleryGrid');
+  grid.innerHTML = '<div class="auth-loading show"><div class="spinner"></div><span style="font-size:0.5rem;letter-spacing:2px;">LOADING...</span></div>';
+  
+  try {
+    const snapshot = await db.collection('drawings')
+      .where('userId', '==', currentUser.uid)
+      .orderBy('createdAt', 'desc')
+      .get();
+    
+    if (snapshot.empty) {
+      grid.innerHTML = `
+        <div class="gallery-empty">
+          <div class="gallery-empty-icon">🎨</div>
+          <div class="gallery-empty-text">NO DRAWINGS YET</div>
+          <div style="margin-top:8px;font-size:0.4rem;color:var(--dim);">Start drawing and save your work!</div>
+        </div>
+      `;
+      return;
+    }
+    
+    grid.innerHTML = '';
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const date = data.createdAt ? new Date(data.createdAt.toDate()).toLocaleDateString() : 'Unknown date';
+      
+      const item = document.createElement('div');
+      item.className = 'gallery-item';
+      item.innerHTML = `
+        <img src="${data.thumbnail}" class="gallery-thumb" alt="${data.name}">
+        <div class="gallery-info">
+          <div class="gallery-name">${escapeHtml(data.name)}</div>
+          <div class="gallery-date">${date} · ${data.strokeCount || 0} strokes</div>
+        </div>
+        <div class="gallery-actions">
+          <button class="gallery-action-btn" onclick="event.stopPropagation();loadDrawing('${doc.id}')" title="Load">↓</button>
+          <button class="gallery-action-btn delete" onclick="event.stopPropagation();deleteDrawing('${doc.id}')" title="Delete">✕</button>
+        </div>
+      `;
+      item.onclick = () => loadDrawing(doc.id);
+      grid.appendChild(item);
+    });
+    
+  } catch (error) {
+    console.error('Gallery load error:', error);
+    grid.innerHTML = '<div class="gallery-empty"><div class="gallery-empty-text">FAILED TO LOAD GALLERY</div></div>';
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+async function loadDrawing(drawingId) {
+  closeGallery();
+  toast('LOADING...');
+  
+  try {
+    const doc = await db.collection('drawings').doc(drawingId).get();
+    
+    if (!doc.exists) {
+      toast('DRAWING NOT FOUND');
+      return;
+    }
+    
+    const data = doc.data();
+    
+    // Parse and apply strokes
+    strokes = JSON.parse(data.strokes);
+    totalPts = data.pointCount || strokes.reduce((sum, s) => sum + s.pts.length, 0);
+    
+    // Update UI
+    document.getElementById('sStrokes').textContent = strokes.length;
+    document.getElementById('sPoints').textContent = totalPts;
+    
+    // Redraw
+    redrawAll();
+    
+    toast('LOADED: ' + data.name.toUpperCase());
+    
+  } catch (error) {
+    console.error('Load drawing error:', error);
+    toast('LOAD FAILED');
+  }
+}
+
+async function deleteDrawing(drawingId) {
+  if (!confirm('Delete this drawing? This cannot be undone.')) {
+    return;
+  }
+  
+  try {
+    await db.collection('drawings').doc(drawingId).delete();
+    toast('DELETED');
+    loadGallery(); // Refresh gallery
+  } catch (error) {
+    console.error('Delete error:', error);
+    toast('DELETE FAILED');
+  }
+}
+
+// Add keyboard support for auth forms
+document.getElementById('loginPassword').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') loginUser();
+});
+document.getElementById('loginUsername').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('loginPassword').focus();
+});
+document.getElementById('signupConfirm').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') signupUser();
+});
+document.getElementById('drawingName').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') confirmSave();
+});
 </script>
 
 
