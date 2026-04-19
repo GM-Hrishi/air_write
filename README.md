@@ -25,8 +25,8 @@ This project uses computer vision to track hand movements and convert them into 
 
 ## Tech Stack
 - HTML, CSS, JavaScript
-- MediaPipe Hands (hand tracking) :contentReference[oaicite:0]{index=0}
-- Firebase (Authentication + Firestore) :contentReference[oaicite:1]{index=1}
+- MediaPipe Hands (hand tracking) 
+- Firebase (Authentication + Firestore) 
 - Canvas API
 
 ## How It Works
